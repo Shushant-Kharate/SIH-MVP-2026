@@ -4,6 +4,24 @@ PrivacyFill AI is a privacy-preserving Chrome form-filling agent. An AI or deter
 
 The project is being implemented incrementally according to [IMPLEMENTATION_PLAN.md](./IMPLEMENTATION_PLAN.md).
 
+## Architecture at a glance
+
+```mermaid
+flowchart LR
+    P[Untrusted demo page] -->|labels, types, required state| S[Extension scanner]
+    V[(Session profile values)] --> L[Local privacy engine]
+    S --> L
+    L -->|leak-checked anonymous JSON| B[Local planner backend]
+    B -->|typed actions: field ID + profile key| X[Local validator and executor]
+    V -->|resolve only after validation| X
+    X -->|input/change events| P
+    X --> C[Submission confirmation]
+```
+
+The backend and optional remote model are outside the private-value trust boundary. See
+[ARCHITECTURE.md](./ARCHITECTURE.md) for the component, message and contract details and
+[THREAT_MODEL.md](./THREAT_MODEL.md) for the security assumptions and residual risks.
+
 ## Requirements
 
 - Node.js 20 or newer
@@ -13,12 +31,13 @@ The project is being implemented incrementally according to [IMPLEMENTATION_PLAN
 ## Current development commands
 
 ```bash
-npm install
+npm ci
 npm test
 npm run test:privacy
 npm run test:acceptance
 npm run verify:static
 npm run verify:secrets
+npm run verify:docs
 npm run verify
 ```
 
@@ -37,10 +56,22 @@ The same process serves the demo forms and the planner API:
 Fallback planning is the default and requires no API key. It deterministically returns typed
 `fill_private` references for compatible fields and never receives or returns real profile values.
 
-For optional remote planning, copy `.env.example` to `.env`, set `PLANNER_MODE=remote`, and provide
-server-only `OPENAI_API_KEY` and `OPENAI_MODEL` values. The remote adapter uses structured JSON output,
-then revalidates the response and automatically falls back on timeout, network failure, malformed output,
-unsafe actions, or stale request identifiers. Never place these settings in extension code.
+## Optional remote planning
+
+Fallback planning is recommended for the hackathon demonstration because it is deterministic and needs
+no key or network access. To test optional remote planning, create a local `.env` from `.env.example`:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+Set `PLANNER_MODE=remote`, `OPENAI_API_KEY`, and `OPENAI_MODEL` inside `.env`, then restart
+`npm run server`. Confirm the effective mode at `http://localhost:8787/api/health`. The key is read only
+by the Node.js backend; never paste it into Chrome DevTools, profile fields, extension code, screenshots,
+commits, or presentation slides.
+
+The remote adapter requests structured JSON, revalidates the response, and automatically falls back on
+timeout, network failure, malformed output, unsafe actions, or stale request identifiers.
 
 ## Build the Chrome extension
 
@@ -85,8 +116,11 @@ For a local demonstration:
 
 1. Run `npm run server` and `npm run build:extension`.
 2. Load `dist/extension` as an unpacked Chrome extension.
-3. Save only the fictional test profile from `tests/fixtures/fake-profile.js`.
-4. Open either page under `http://localhost:8787/demo/`.
+3. Open the extension profile page, select **Use fictional demo profile**, and then select
+   **Save to this session**. Do not use a team member's real data.
+4. Open either controlled page:
+   - Scholarship: `http://localhost:8787/demo/scholarship.html`
+   - Citizen service: `http://localhost:8787/demo/service-registration.html`
 5. Use **Scan**, optionally inspect the exact payload, then choose **Plan and fill locally**.
 6. Approve the critical-identifier prompt and review the highlighted fields.
 7. Choose **View privacy audit** to inspect value-free events.
@@ -97,8 +131,47 @@ Before presenting, follow the Chrome-only cases in
 Chrome version, and result for every row. Automated checks do not replace loading the unpacked extension
 on the presentation laptop.
 
+The complete five-minute narration, role split, reset sequence and failure recovery are in
+[DEMO_SCRIPT.md](./DEMO_SCRIPT.md). Use [TEST_MATRIX.md](./TEST_MATRIX.md) to connect each claim to
+automated or manual evidence. Store screenshots and the backup recording according to
+[demo-evidence/README.md](./demo-evidence/README.md); that folder intentionally contains no real PII.
+
 ## Secret handling
 
 Copy `.env.example` to `.env` only when remote backend configuration is required. Never commit `.env`,
 place an API key in extension code, or use real personal information in tests. Server logs are restricted
 to request ID, field count, planner type, duration, outcome, and a safe error code.
+
+## Known MVP limitations
+
+- It supports only the two localhost demonstration forms, not arbitrary websites or cross-origin frames.
+- Classification is deterministic and label-driven; ambiguous or unfamiliar fields can be left unfilled.
+- The seven-value profile uses temporary `chrome.storage.session`, not a production encrypted vault.
+- Exact and normalized leak checks reduce accidental disclosure but are not a formal DLP guarantee.
+- CAPTCHA, OTP, passwords, file uploads, screenshots, OCR and automatic final submission are excluded.
+- A hostile page can observe values after they are inserted into its DOM; the MVP protects the planning
+  boundary, not a page to which the user has intentionally chosen to disclose information.
+- Remote-model behavior is probabilistic before validation; unapproved or malformed actions fail closed.
+
+## Research acknowledgement and novelty boundary
+
+The architecture is informed by Zhao, Li, Zou, Liu et al., *Anonymization-Enhanced Privacy Protection for
+Mobile GUI Agents: Available but Invisible*, particularly its separation between anonymized agent
+reasoning and trusted local resolution. The authors' accompanying research implementation is available at
+[one-step-beh1nd/gui_privacy_protection](https://github.com/one-step-beh1nd/gui_privacy_protection).
+
+PrivacyFill AI is not presented as inventing anonymization or the “available but invisible” principle. Its
+defensible hackathon contribution is a constrained, inspectable Chrome form-filling realization: the user
+can view the exact leak-checked request; the planner emits only schema-validated typed references; real
+values are resolved after a fresh local policy check; offline fallback, metadata-only audit, and one-use
+submission confirmation make the complete trust boundary demonstrable on ordinary web forms.
+
+## Team handoff
+
+Start with this README, then read these documents in order:
+
+1. [ARCHITECTURE.md](./ARCHITECTURE.md) — what runs where and what data crosses each boundary.
+2. [THREAT_MODEL.md](./THREAT_MODEL.md) — what is protected, assumed and still risky.
+3. [DEMO_SCRIPT.md](./DEMO_SCRIPT.md) — the exact five-minute presentation and recovery path.
+4. [TEST_MATRIX.md](./TEST_MATRIX.md) — claim-to-test traceability and evidence locations.
+5. [Manual acceptance checklist](./tests/manual/acceptance-checklist.md) — Chrome release gate.

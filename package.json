@@ -17,7 +17,8 @@
     "test:privacy": "node --test tests/unit/contracts.test.js tests/unit/leak-checker.test.js tests/unit/planner-client.test.js tests/unit/action-validator.test.js tests/unit/audit-log.test.js tests/unit/confirmation-overlay.test.js tests/integration/privacy-boundary.test.js tests/integration/plan-route.test.js tests/integration/local-fill-flow.test.js",
     "verify:static": "npm run build:extension --silent && node scripts/verify-static-security.mjs",
     "verify:secrets": "node scripts/verify-no-secrets.mjs",
-    "verify": "npm run test && npm run test:privacy && npm run verify:static && npm run verify:secrets"
+    "verify:docs": "node --test tests/unit/documentation.test.js",
+    "verify": "npm run test && npm run test:privacy && npm run verify:static && npm run verify:secrets && npm run verify:docs"
   },
   "devDependencies": {
     "esbuild": "^0.28.2",
