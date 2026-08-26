@@ -102,4 +102,28 @@ describe("Chrome extension shell", () => {
     assert.match(contentScript, /PING_CONTENT_SCRIPT/);
     assert.equal(JSON.stringify(JSON.parse(await readExtensionFile("manifest.json"))).includes("<all_urls>"), false);
   });
+
+  it("shows selected-tab permission, compatibility counts and privacy inspection states", async () => {
+    const popupHtml = await readExtensionFile("pages/popup.html");
+    const popupScript = await readExtensionFile("src/popup.js");
+    const popupViewModel = await readExtensionFile("src/ui/popup-view-model.js");
+    const combined = `${popupHtml}\n${popupScript}\n${popupViewModel}`;
+
+    for (const id of [
+      "page-access-title",
+      "compatibility-title",
+      "detected-field-count",
+      "mapped-field-count",
+      "blocked-field-count",
+      "unsupported-field-count",
+    ]) {
+      assert.match(popupHtml, new RegExp(`id="${id}"`));
+    }
+    assert.match(combined, /Ready to scan this tab/);
+    assert.match(combined, /Google Forms experimental/);
+    assert.match(combined, /Page changed—rescan required/);
+    assert.match(combined, /No supported fields/);
+    assert.match(popupHtml, /Required: verify exact JSON and zero matches/);
+    assert.doesNotMatch(combined, /works on every (?:website|form)/i);
+  });
 });

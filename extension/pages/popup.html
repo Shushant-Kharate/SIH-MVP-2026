@@ -33,6 +33,15 @@
       </div>
     </section>
 
+    <section class="access-card" id="page-access" data-state="checking" aria-labelledby="page-access-title" aria-live="polite">
+      <span class="access-icon" aria-hidden="true"></span>
+      <div>
+        <p class="card-eyebrow">Selected-tab access</p>
+        <h2 id="page-access-title">Checking this tab…</h2>
+        <p id="page-access-copy">PrivacyFill does not scan until you choose Scan.</p>
+      </div>
+    </section>
+
     <section class="workflow" aria-label="Private form-filling workflow">
       <button class="action-card action-card--button" id="scan-form" type="button">
         <span class="step-number">01</span>
@@ -46,7 +55,7 @@
         <span class="step-number">02</span>
         <div>
           <h2>Inspect safe payload</h2>
-          <p>See exactly what may leave Chrome.</p>
+          <p>Required: verify exact JSON and zero matches.</p>
         </div>
         <span class="run-action">View</span>
       </button>
@@ -68,7 +77,37 @@
       </button>
     </section>
 
-    <section class="scan-result" id="scan-result" data-tone="neutral" role="status" hidden></section>
+    <section class="compatibility-card" id="compatibility-panel" data-state="supported" aria-labelledby="compatibility-title" aria-live="polite" hidden>
+      <div class="compatibility-heading">
+        <div>
+          <p class="card-eyebrow">Page compatibility</p>
+          <h2 id="compatibility-title">Standard form detected</h2>
+        </div>
+        <span class="compatibility-badge" id="compatibility-badge">Supported subset</span>
+      </div>
+      <p class="compatibility-copy" id="compatibility-copy"></p>
+      <dl class="metric-grid" aria-label="Safe scan counts">
+        <div>
+          <dt>Detected</dt>
+          <dd id="detected-field-count">0</dd>
+        </div>
+        <div>
+          <dt>Mapped</dt>
+          <dd id="mapped-field-count">0</dd>
+        </div>
+        <div>
+          <dt>Blocked</dt>
+          <dd id="blocked-field-count">0</dd>
+        </div>
+        <div>
+          <dt>Unsupported</dt>
+          <dd id="unsupported-field-count">0</dd>
+        </div>
+      </dl>
+      <p class="compatibility-note">No page URL, title, cookies, account identity or current field values are shown or sent.</p>
+    </section>
+
+    <section class="scan-result" id="scan-result" data-tone="neutral" role="status" aria-live="polite" hidden></section>
 
     <section class="payload-panel" id="payload-panel" hidden>
       <div class="payload-check" id="payload-check"></div>
