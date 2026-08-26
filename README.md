@@ -16,7 +16,10 @@ The project is being implemented incrementally according to [IMPLEMENTATION_PLAN
 npm install
 npm test
 npm run test:privacy
+npm run test:acceptance
+npm run verify:static
 npm run verify:secrets
+npm run verify
 ```
 
 Run the controlled demonstration forms at `http://localhost:8787/demo/`:
@@ -88,6 +91,11 @@ For a local demonstration:
 6. Approve the critical-identifier prompt and review the highlighted fields.
 7. Choose **View privacy audit** to inspect value-free events.
 8. Submit the form, review the extension confirmation dialog, then Cancel or **Submit once**.
+
+Before presenting, follow the Chrome-only cases in
+[`tests/manual/acceptance-checklist.md`](./tests/manual/acceptance-checklist.md) and record the operator,
+Chrome version, and result for every row. Automated checks do not replace loading the unpacked extension
+on the presentation laptop.
 
 ## Secret handling
 
