@@ -1,0 +1,169 @@
+import { CONTRACT_LIMITS } from "../../../shared/contracts.js";
+import { classifyFieldMetadata } from "./pii-classifier.js";
+import { createSnapshotId } from "./snapshot.js";
+
+const IGNORED_INPUT_TYPES = new Set(["button", "file", "hidden", "image", "reset", "submit"]);
+const SUPPORTED_INPUT_TYPES = new Set([
+  "checkbox", "date", "email", "number", "password", "radio", "search", "tel", "text", "url",
+]);
+
+function normalizeWhitespace(value) {
+  return String(value ?? "").trim().replace(/\s+/g, " ");
+}
+
+function limitText(value, maximum = CONTRACT_LIMITS.MAX_LABEL_LENGTH) {
+  return normalizeWhitespace(value).slice(0, maximum);
+}
+
+function textFromElement(element) {
+  return limitText(element?.textContent ?? "");
+}
+
+function getExplicitLabel(element, document) {
+  const id = element.getAttribute("id");
+  if (!id) return "";
+
+  for (const label of document.querySelectorAll("label[for]")) {
+    if (label.getAttribute("for") === id) return textFromElement(label);
+  }
+  return "";
+}
+
+function getWrappingLabel(element) {
+  return textFromElement(element.closest("label"));
+}
+
+function getAriaLabelledBy(element, document) {
+  const ids = normalizeWhitespace(element.getAttribute("aria-labelledby")).split(" ").filter(Boolean);
+  return limitText(ids.map((id) => textFromElement(document.getElementById(id))).filter(Boolean).join(" "));
+}
+
+export function deriveFieldLabel(element, document = element.ownerDocument) {
+  const candidates = [
+    getExplicitLabel(element, document),
+    getWrappingLabel(element),
+    limitText(element.getAttribute("aria-label")),
+    getAriaLabelledBy(element, document),
+    limitText(element.getAttribute("placeholder")),
+    limitText(element.getAttribute("name")),
+    limitText(element.getAttribute("id")),
+  ];
+  return candidates.find(Boolean) ?? "Unlabelled field";
+}
+
+function isSemanticallyVisible(element) {
+  if (element.hidden || element.getAttribute("aria-hidden") === "true") return false;
+  if (element.closest("[hidden], [aria-hidden='true'], [data-privacyfill-owned]")) return false;
+
+  const style = (element.getAttribute("style") ?? "").replace(/\s+/g, "").toLowerCase();
+  if (style.includes("display:none") || style.includes("visibility:hidden")) return false;
+
+  const view = element.ownerDocument?.defaultView;
+  if (view?.getComputedStyle) {
+    const computed = view.getComputedStyle(element);
+    if (computed?.display === "none" || computed?.visibility === "hidden") return false;
+  }
+  return true;
+}
+
+function getControlType(element) {
+  const tag = element.tagName.toLowerCase();
+  if (tag === "textarea") return "textarea";
+  if (tag === "select") return "select";
+  return (element.getAttribute("type") || "text").toLowerCase();
+}
+
+function isSupportedElement(element) {
+  const tag = element.tagName.toLowerCase();
+  if (!["input", "select", "textarea"].includes(tag)) return false;
+  if (element.disabled || !isSemanticallyVisible(element)) return false;
+  if (tag !== "input") return true;
+
+  const type = getControlType(element);
+  return !IGNORED_INPUT_TYPES.has(type) && SUPPORTED_INPUT_TYPES.has(type);
+}
+
+function getSafeOptions(element) {
+  if (element.tagName.toLowerCase() !== "select") return [];
+  return Array.from(element.querySelectorAll("option"))
+    .map((option) => limitText(option.textContent, CONTRACT_LIMITS.MAX_OPTION_LENGTH))
+    .filter(Boolean)
+    .slice(0, CONTRACT_LIMITS.MAX_OPTIONS_PER_FIELD);
+}
+
+function formIdFor(element, formIds) {
+  const form = element.closest("form");
+  if (!form) return "FORM_0";
+  if (!formIds.has(form)) formIds.set(form, `FORM_${formIds.size + 1}`);
+  return formIds.get(form);
+}
+
+function buildFieldEntry(element, index, formIds, document) {
+  const tag = element.tagName.toLowerCase();
+  const metadata = {
+    fieldId: `FIELD_${index + 1}`,
+    formId: formIdFor(element, formIds),
+    tag,
+    type: getControlType(element),
+    label: deriveFieldLabel(element, document),
+    name: limitText(element.getAttribute("name")),
+    id: limitText(element.getAttribute("id")),
+    placeholder: limitText(element.getAttribute("placeholder")),
+    autocomplete: limitText(element.getAttribute("autocomplete")),
+    required: element.required === true || element.getAttribute("aria-required") === "true",
+    disabled: element.disabled === true,
+    readonly: element.readOnly === true || element.hasAttribute("readonly"),
+    options: getSafeOptions(element),
+  };
+
+  return {
+    ...metadata,
+    classification: classifyFieldMetadata(metadata),
+  };
+}
+
+export function scanDocument(document) {
+  if (!document?.querySelectorAll) throw new TypeError("A DOM document is required.");
+
+  const candidates = Array.from(document.querySelectorAll("input, select, textarea"))
+    .filter(isSupportedElement)
+    .slice(0, CONTRACT_LIMITS.MAX_FIELDS);
+  const formIds = new Map();
+  const elementByFieldId = new Map();
+  const fields = candidates.map((element, index) => {
+    const field = buildFieldEntry(element, index, formIds, document);
+    elementByFieldId.set(field.fieldId, element);
+    return field;
+  });
+
+  return {
+    snapshotId: createSnapshotId(fields),
+    fields,
+    elementByFieldId,
+  };
+}
+
+export function createSafeScanResult(scan) {
+  const fields = scan.fields.map((field) => ({
+    fieldId: field.fieldId,
+    formId: field.formId,
+    tag: field.tag,
+    type: field.type,
+    label: field.label,
+    required: field.required,
+    readonly: field.readonly,
+    options: [...field.options],
+    suggestedProfileKey: field.classification.category,
+    confidence: field.classification.confidence,
+    risk: field.classification.risk,
+    evidence: [...field.classification.evidence],
+  }));
+
+  return {
+    snapshotId: scan.snapshotId,
+    fieldCount: fields.length,
+    privateFieldCount: fields.filter((field) => field.suggestedProfileKey?.startsWith("PROFILE.")).length,
+    blockedFieldCount: fields.filter((field) => field.suggestedProfileKey === "UNKNOWN_SENSITIVE").length,
+    fields,
+  };
+}

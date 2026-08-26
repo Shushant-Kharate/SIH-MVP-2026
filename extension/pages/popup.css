@@ -1,0 +1,252 @@
+body {
+  width: 370px;
+  min-height: 540px;
+}
+
+.popup-shell {
+  padding: 18px;
+}
+
+.popup-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+
+.version-pill {
+  border-radius: 999px;
+  padding: 6px 9px;
+  color: var(--muted);
+  background: #e9eef6;
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
+.status-card,
+.action-card,
+.privacy-card {
+  border: 1px solid var(--line);
+  border-radius: 17px;
+  background: rgb(255 255 255 / 92%);
+  box-shadow: var(--shadow);
+}
+
+.status-card {
+  padding: 16px;
+}
+
+.status-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.status-title {
+  margin: 0 0 4px;
+  font-size: 0.95rem;
+}
+
+.status-copy {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.status-dot {
+  width: 11px;
+  height: 11px;
+  flex: 0 0 auto;
+  margin-top: 4px;
+  border-radius: 50%;
+  background: #a4adbd;
+  box-shadow: 0 0 0 5px rgb(164 173 189 / 15%);
+}
+
+.status-dot[data-state="ready"] {
+  background: #1d936a;
+  box-shadow: 0 0 0 5px rgb(29 147 106 / 14%);
+}
+
+.profile-actions {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 9px;
+  margin-top: 14px;
+}
+
+.workflow {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.action-card {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 32px 1fr auto;
+  align-items: center;
+  gap: 11px;
+  padding: 12px;
+}
+
+.action-card--button {
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 150ms ease, transform 150ms ease;
+}
+
+.action-card--button:hover {
+  border-color: #9db3ee;
+  transform: translateY(-1px);
+}
+
+.action-card--button:disabled {
+  border-color: var(--line);
+  color: #8a94a8;
+  background: #f3f5f8;
+  transform: none;
+  cursor: not-allowed;
+}
+
+.action-card--button:disabled .step-number,
+.action-card--button:disabled .run-action {
+  color: #8a94a8;
+  background: #e3e7ed;
+}
+
+.step-number {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  color: var(--brand-dark);
+  background: #e9efff;
+  font-size: 0.77rem;
+  font-weight: 850;
+}
+
+.action-card h2,
+.action-card p {
+  margin: 0;
+}
+
+.action-card h2 {
+  font-size: 0.84rem;
+}
+
+.action-card p {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 0.7rem;
+}
+
+.coming-soon {
+  border-radius: 999px;
+  padding: 5px 7px;
+  color: #6d7690;
+  background: #edf0f5;
+  font-size: 0.62rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.run-action {
+  border-radius: 999px;
+  padding: 5px 8px;
+  color: white;
+  background: var(--brand);
+  font-size: 0.62rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.scan-result {
+  margin-top: 12px;
+  border-radius: 13px;
+  padding: 12px 13px;
+  font-size: 0.76rem;
+  line-height: 1.5;
+}
+
+.scan-result[data-tone="neutral"] {
+  color: var(--muted);
+  background: #edf1f7;
+}
+
+.scan-result[data-tone="success"] {
+  color: var(--good);
+  background: var(--good-bg);
+}
+
+.scan-result[data-tone="error"] {
+  color: var(--danger);
+  background: var(--danger-bg);
+}
+
+.payload-panel {
+  margin-top: 12px;
+  border: 1px solid #b9e8d5;
+  border-radius: 14px;
+  padding: 12px;
+  background: #f4fcf8;
+}
+
+.payload-check {
+  color: var(--good);
+  font-size: 0.76rem;
+  font-weight: 760;
+  line-height: 1.45;
+}
+
+.payload-panel details {
+  margin-top: 9px;
+}
+
+.payload-panel summary {
+  color: var(--brand-dark);
+  font-size: 0.72rem;
+  font-weight: 780;
+  cursor: pointer;
+}
+
+.payload-panel pre {
+  max-height: 190px;
+  overflow: auto;
+  margin: 9px 0 0;
+  border-radius: 9px;
+  padding: 10px;
+  color: #243047;
+  background: #e8edf4;
+  font: 0.66rem/1.45 ui-monospace, SFMono-Regular, Consolas, monospace;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.privacy-card {
+  margin-top: 14px;
+  padding: 14px;
+  border-color: #b9e8d5;
+  color: var(--good);
+  background: var(--good-bg);
+  box-shadow: none;
+  font-size: 0.78rem;
+  line-height: 1.48;
+}
+
+.footer-status {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 14px;
+  color: var(--muted);
+  font-size: 0.68rem;
+}
+
+.footer-status span:last-child {
+  text-align: right;
+}

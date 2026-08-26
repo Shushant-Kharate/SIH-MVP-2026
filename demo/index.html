@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Controlled application forms for the PrivacyFill AI MVP demonstration.">
+  <title>PrivacyFill AI — Controlled Demo Forms</title>
+  <link rel="stylesheet" href="./demo.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="header-inner">
+      <a class="brand" href="./index.html" aria-label="PrivacyFill AI demo home">
+        <span class="brand-mark" aria-hidden="true">P</span>
+        <span>PrivacyFill AI</span>
+      </a>
+      <span class="demo-badge">Controlled demo · Fake data only</span>
+    </div>
+  </header>
+
+  <main class="page-shell">
+    <section class="hero" aria-labelledby="page-title">
+      <span class="eyebrow">SIH internal prototype</span>
+      <h1 id="page-title">Two forms. One private profile. Zero raw values for the planner.</h1>
+      <p>
+        These controlled pages exercise different field structures so the extension can demonstrate
+        scanning, anonymized planning, local filling and confirmation without touching a real service.
+      </p>
+    </section>
+
+    <section class="card-grid" aria-label="Choose a demonstration form">
+      <a class="choice-card" href="./scholarship.html">
+        <p class="card-kicker">Form A · Standard structure</p>
+        <h2>National Scholarship Application</h2>
+        <p>Explicit labels, common profile fields, course selection and applicant consent.</p>
+      </a>
+
+      <a class="choice-card" href="./service-registration.html">
+        <p class="card-kicker">Form B · Mixed structure</p>
+        <h2>Citizen Service Registration</h2>
+        <p>Wrapping labels, ARIA metadata, placeholders, radio controls and a blocked OTP field.</p>
+      </a>
+    </section>
+
+    <aside class="privacy-note">
+      <strong>Privacy boundary:</strong> the pages do not send form values anywhere. Submission is
+      simulated locally, and the later extension confirmation guard will intercept the final action.
+    </aside>
+  </main>
+</body>
+</html>

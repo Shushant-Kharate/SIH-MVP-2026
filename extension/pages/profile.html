@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Local Profile — PrivacyFill AI</title>
+  <link rel="stylesheet" href="./common.css">
+  <link rel="stylesheet" href="./profile.css">
+  <script type="module" src="./profile.js"></script>
+</head>
+<body>
+  <header class="page-header">
+    <div class="header-inner">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">P</span>
+        <span>PrivacyFill AI</span>
+      </div>
+      <span class="session-label">Session profile</span>
+    </div>
+  </header>
+
+  <main class="profile-shell">
+    <section class="intro" aria-labelledby="page-title">
+      <p class="eyebrow">Trusted local component</p>
+      <h1 id="page-title">Create your private form profile</h1>
+      <p>
+        These values are stored only in Chrome's temporary extension session. The planner receives
+        category names such as <code>PROFILE.EMAIL</code>, never the value entered here.
+      </p>
+    </section>
+
+    <div class="profile-layout">
+      <section class="profile-card">
+        <div class="status-message form-status" id="profile-message" data-tone="neutral" role="status">
+          Checking the current browser session…
+        </div>
+
+        <form id="profile-form" novalidate>
+          <div class="field-grid">
+            <div class="field field--wide">
+              <label for="profile-name">Full name</label>
+              <input id="profile-name" name="PROFILE.NAME" type="text" autocomplete="name" maxlength="100">
+              <span class="field-error" id="error-name"></span>
+            </div>
+
+            <div class="field">
+              <label for="profile-email">Email address</label>
+              <input id="profile-email" name="PROFILE.EMAIL" type="email" autocomplete="email" maxlength="254">
+              <span class="field-error" id="error-email"></span>
+            </div>
+
+            <div class="field">
+              <label for="profile-phone">Mobile number</label>
+              <input id="profile-phone" name="PROFILE.PHONE" type="tel" autocomplete="tel" inputmode="numeric" maxlength="10">
+              <span class="field-error" id="error-phone"></span>
+            </div>
+
+            <div class="field">
+              <label for="profile-dob">Date of birth</label>
+              <input id="profile-dob" name="PROFILE.DOB" type="date" autocomplete="bday">
+              <span class="field-error" id="error-dob"></span>
+            </div>
+
+            <div class="field">
+              <label for="profile-pan">PAN number</label>
+              <input id="profile-pan" name="PROFILE.PAN" type="password" autocomplete="off" maxlength="10">
+              <span class="field-help">Use fictional test data only.</span>
+              <span class="field-error" id="error-pan"></span>
+            </div>
+
+            <div class="field field--wide">
+              <label for="profile-address">Residential address</label>
+              <textarea id="profile-address" name="PROFILE.ADDRESS" autocomplete="street-address" maxlength="250"></textarea>
+              <span class="field-error" id="error-address"></span>
+            </div>
+
+            <div class="field field--wide">
+              <label for="profile-aadhaar">Aadhaar-shaped demo identifier</label>
+              <input id="profile-aadhaar" name="PROFILE.AADHAAR" type="password" autocomplete="off" inputmode="numeric" maxlength="12">
+              <span class="field-help">Never use a real Aadhaar number in this prototype.</span>
+              <span class="field-error" id="error-aadhaar"></span>
+            </div>
+          </div>
+
+          <div class="form-actions">
+            <button class="button button--primary" type="submit">Save to this session</button>
+            <button class="button button--secondary" id="use-demo-profile" type="button">Use fictional demo profile</button>
+            <button class="button button--secondary" type="reset">Clear inputs</button>
+            <button class="button button--danger" id="delete-profile" type="button">Delete session profile</button>
+          </div>
+        </form>
+      </section>
+
+      <aside class="side-stack" aria-label="Profile privacy information">
+        <section class="notice">
+          <strong>MVP limitation:</strong> session storage is intentionally temporary, but it is not a
+          production-grade encrypted vault.
+        </section>
+        <section class="info-card">
+          <h2>What the planner may know</h2>
+          <ul>
+            <li>Which profile categories are available</li>
+            <li>Anonymous form-field IDs</li>
+            <li>Labels, types and required status</li>
+          </ul>
+        </section>
+        <section class="info-card">
+          <h2>What stays local</h2>
+          <ul>
+            <li>Your actual profile values</li>
+            <li>The mapping from categories to values</li>
+            <li>Local field insertion</li>
+          </ul>
+        </section>
+      </aside>
+    </div>
+  </main>
+</body>
+</html>
