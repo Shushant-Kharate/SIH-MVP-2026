@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<body>
+  <main>
+    <p>Signed in as private-account@example.test</p>
+    <div role="listitem" data-question-container>
+      <div id="question-name" role="heading">Applicant full name *</div>
+      <div><input name="entry.1001" type="text" aria-labelledby="question-name"></div>
+      <div class="helper">Do not include titles.</div>
+    </div>
+
+    <div role="listitem" data-question-container>
+      <div role="heading">Primary mobile number (required)</div>
+      <div><input name="entry.1002" type="tel"></div>
+      <div class="helper">Example account: 9000000000</div>
+    </div>
+
+    <div role="listitem" data-question-container>
+      <div data-question-title>Permanent residential address *</div>
+      <div><textarea name="entry.1003"></textarea></div>
+    </div>
+
+    <div role="listitem" data-question-container>
+      <div role="heading" aria-hidden="true">Wrong hidden title</div>
+      <div role="heading">Email address *</div>
+      <div><input name="entry.1004" type="email"></div>
+    </div>
+
+    <fieldset>
+      <legend>Applicant category *</legend>
+      <input id="category-student" name="entry.1005" type="radio">
+    </fieldset>
+  </main>
+</body>
+</html>

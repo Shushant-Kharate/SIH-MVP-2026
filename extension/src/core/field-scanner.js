@@ -1,4 +1,5 @@
 import { CONTRACT_LIMITS } from "../../../shared/contracts.js";
+import { deriveAccessibleFieldLabel } from "./accessible-name.js";
 import { classifyFieldMetadata } from "./pii-classifier.js";
 import { minimizeExternalLabel, minimizeExternalOptions } from "./label-sanitizer.js";
 import { createSnapshotId } from "./snapshot.js";
@@ -16,40 +17,8 @@ function limitText(value, maximum = CONTRACT_LIMITS.MAX_LABEL_LENGTH) {
   return normalizeWhitespace(value).slice(0, maximum);
 }
 
-function textFromElement(element) {
-  return limitText(element?.textContent ?? "");
-}
-
-function getExplicitLabel(element, document) {
-  const id = element.getAttribute("id");
-  if (!id) return "";
-
-  for (const label of document.querySelectorAll("label[for]")) {
-    if (label.getAttribute("for") === id) return textFromElement(label);
-  }
-  return "";
-}
-
-function getWrappingLabel(element) {
-  return textFromElement(element.closest("label"));
-}
-
-function getAriaLabelledBy(element, document) {
-  const ids = normalizeWhitespace(element.getAttribute("aria-labelledby")).split(" ").filter(Boolean);
-  return limitText(ids.map((id) => textFromElement(document.getElementById(id))).filter(Boolean).join(" "));
-}
-
 export function deriveFieldLabel(element, document = element.ownerDocument) {
-  const candidates = [
-    getExplicitLabel(element, document),
-    getWrappingLabel(element),
-    limitText(element.getAttribute("aria-label")),
-    getAriaLabelledBy(element, document),
-    limitText(element.getAttribute("placeholder")),
-    limitText(element.getAttribute("name")),
-    limitText(element.getAttribute("id")),
-  ];
-  return candidates.find(Boolean) ?? "Unlabelled field";
+  return deriveAccessibleFieldLabel(element, document);
 }
 
 function isSemanticallyVisible(element) {

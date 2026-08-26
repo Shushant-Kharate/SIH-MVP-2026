@@ -68,6 +68,23 @@ describe("DOM field scanner", () => {
     assert.equal(fieldByName(scan, "preferredAppointmentDate").classification.category, null);
   });
 
+  it("discovers bounded question headings in Google Forms-like markup", async () => {
+    const document = await loadDemoDocument("../tests/fixtures/google-form-like.html");
+    const scan = scanDocument(document);
+
+    assert.equal(fieldByName(scan, "entry.1001").label, "Applicant full name");
+    assert.equal(fieldByName(scan, "entry.1002").label, "Primary mobile number");
+    assert.equal(fieldByName(scan, "entry.1003").label, "Permanent residential address");
+    assert.equal(fieldByName(scan, "entry.1004").label, "Email address");
+    assert.equal(fieldByName(scan, "entry.1005").label, "Applicant category");
+    assert.equal(fieldByName(scan, "entry.1001").classification.category, PROFILE_KEYS.NAME);
+    assert.equal(fieldByName(scan, "entry.1002").classification.category, PROFILE_KEYS.PHONE);
+    assert.equal(fieldByName(scan, "entry.1003").classification.category, PROFILE_KEYS.ADDRESS);
+    assert.equal(fieldByName(scan, "entry.1004").classification.category, PROFILE_KEYS.EMAIL);
+    assert.equal(JSON.stringify(createSafeScanResult(scan)).includes("private-account@example.test"), false);
+    assert.equal(JSON.stringify(createSafeScanResult(scan)).includes("9000000000"), false);
+  });
+
   it("ignores hidden, disabled, file, submit and extension-owned controls", () => {
     const { document } = parseHTML(`
       <form>
