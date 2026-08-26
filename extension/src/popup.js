@@ -158,7 +158,7 @@ async function scanActiveTab() {
     inspectPayloadButton.disabled = !profileReady;
     planFillButton.disabled = !profileReady;
     renderScanResult(
-      `Detected ${result.fieldCount} fields · ${result.privateFieldCount} private · ${result.blockedFieldCount} blocked · ${result.snapshotId}`,
+      `Detected ${result.fieldCount} fields · ${result.privateFieldCount} private · ${result.blockedFieldCount} blocked · ${result.unsupportedControlCount ?? 0} unsupported · ${result.adapterId ?? "generic"} · ${result.snapshotId}`,
       "success",
     );
   } catch (error) {

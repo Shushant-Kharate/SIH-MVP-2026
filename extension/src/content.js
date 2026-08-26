@@ -12,6 +12,7 @@ const INSTALLATION_MARKER = "__privacyFillContentScriptV1";
 function scanCurrentPage() {
   return scanDocument(document, {
     externalPage: isExternalPageLocation(globalThis.location),
+    locationLike: globalThis.location,
   });
 }
 

@@ -85,6 +85,27 @@ describe("DOM field scanner", () => {
     assert.equal(JSON.stringify(createSafeScanResult(scan)).includes("9000000000"), false);
   });
 
+  it("uses the Google adapter only for its conservative native-control subset", async () => {
+    const document = await loadDemoDocument("../tests/fixtures/google-form-like.html");
+    const safe = createSafeScanResult(scanDocument(document, {
+      externalPage: true,
+      locationLike: {
+        protocol: "https:",
+        hostname: "docs.google.com",
+        pathname: "/forms/d/e/example/viewform",
+      },
+    }));
+    const serialized = JSON.stringify(safe);
+
+    assert.equal(safe.adapterId, "google-forms-experimental");
+    assert.equal(safe.fieldCount, 4);
+    assert.equal(safe.privateFieldCount, 4);
+    assert.equal(safe.unsupportedControlCount, 3);
+    assert.equal(serialized.includes("docs.google.com"), false);
+    assert.equal(serialized.includes("private-account@example.test"), false);
+    assert.equal(serialized.includes("Supporting document"), false);
+  });
+
   it("ignores hidden, disabled, file, submit and extension-owned controls", () => {
     const { document } = parseHTML(`
       <form>

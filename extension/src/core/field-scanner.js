@@ -1,5 +1,5 @@
 import { CONTRACT_LIMITS } from "../../../shared/contracts.js";
-import { deriveAccessibleFieldLabel } from "./accessible-name.js";
+import { selectFormAdapter } from "../adapters/adapter-registry.js";
 import { classifyFieldMetadata } from "./pii-classifier.js";
 import { minimizeExternalLabel, minimizeExternalOptions } from "./label-sanitizer.js";
 import { createSnapshotId } from "./snapshot.js";
@@ -18,7 +18,7 @@ function limitText(value, maximum = CONTRACT_LIMITS.MAX_LABEL_LENGTH) {
 }
 
 export function deriveFieldLabel(element, document = element.ownerDocument) {
-  return deriveAccessibleFieldLabel(element, document);
+  return selectFormAdapter(document).deriveLabel(element, document);
 }
 
 function isSemanticallyVisible(element) {
@@ -61,26 +61,26 @@ function getSafeOptions(element) {
     .slice(0, CONTRACT_LIMITS.MAX_OPTIONS_PER_FIELD);
 }
 
-function formIdFor(element, formIds) {
-  const form = element.closest("form");
+function formIdFor(element, formIds, adapter) {
+  const form = adapter.getFormContainer(element);
   if (!form) return "FORM_0";
   if (!formIds.has(form)) formIds.set(form, `FORM_${formIds.size + 1}`);
   return formIds.get(form);
 }
 
-function buildFieldEntry(element, index, formIds, document, externalPage) {
+function buildFieldEntry(element, index, formIds, document, externalPage, adapter) {
   const tag = element.tagName.toLowerCase();
   const rawMetadata = {
     fieldId: `FIELD_${index + 1}`,
-    formId: formIdFor(element, formIds),
+    formId: formIdFor(element, formIds, adapter),
     tag,
     type: getControlType(element),
-    label: deriveFieldLabel(element, document),
+    label: adapter.deriveLabel(element, document),
     name: limitText(element.getAttribute("name")),
     id: limitText(element.getAttribute("id")),
     placeholder: limitText(element.getAttribute("placeholder")),
     autocomplete: limitText(element.getAttribute("autocomplete")),
-    required: element.required === true || element.getAttribute("aria-required") === "true",
+    required: adapter.deriveRequired(element, document),
     disabled: element.disabled === true,
     readonly: element.readOnly === true || element.hasAttribute("readonly"),
     options: getSafeOptions(element),
@@ -100,22 +100,25 @@ function buildFieldEntry(element, index, formIds, document, externalPage) {
   };
 }
 
-export function scanDocument(document, { externalPage = false } = {}) {
+export function scanDocument(document, { externalPage = false, locationLike } = {}) {
   if (!document?.querySelectorAll) throw new TypeError("A DOM document is required.");
 
-  const candidates = Array.from(document.querySelectorAll("input, select, textarea"))
+  const adapter = selectFormAdapter(document, locationLike);
+  const candidates = adapter.findControls(document)
     .filter(isSupportedElement)
     .slice(0, CONTRACT_LIMITS.MAX_FIELDS);
   const formIds = new Map();
   const elementByFieldId = new Map();
   const fields = candidates.map((element, index) => {
-    const field = buildFieldEntry(element, index, formIds, document, externalPage);
+    const field = buildFieldEntry(element, index, formIds, document, externalPage, adapter);
     elementByFieldId.set(field.fieldId, element);
     return field;
   });
 
   return {
+    adapterId: adapter.id,
     privacyMode: externalPage ? "external" : "controlled",
+    unsupportedControlCount: adapter.getUnsupportedControlCount(document),
     snapshotId: createSnapshotId(fields),
     fields,
     elementByFieldId,
@@ -139,7 +142,11 @@ export function createSafeScanResult(scan) {
   }));
 
   return {
+    adapterId: scan.adapterId ?? "generic",
     privacyMode: scan.privacyMode === "external" ? "external" : "controlled",
+    unsupportedControlCount: Number.isInteger(scan.unsupportedControlCount)
+      ? Math.max(0, scan.unsupportedControlCount)
+      : 0,
     snapshotId: scan.snapshotId,
     fieldCount: fields.length,
     privateFieldCount: fields.filter((field) => field.suggestedProfileKey?.startsWith("PROFILE.")).length,
