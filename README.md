@@ -59,12 +59,28 @@ The current extension chunk provides:
 - an allowlist-only sanitized planning-request builder;
 - exact and normalized profile-value leakage blocking;
 - an exact checked-JSON payload viewer in the popup;
+- validated calls to the local fallback or remote planner;
+- a second local policy check against a fresh form snapshot;
+- native field filling with `input` and `change` event dispatch;
+- explicit approval before critical Aadhaar or PAN disclosure;
+- session-only, metadata-only per-field audit records;
 - minimal localhost-only host access;
 - no API credential or provider code in the browser bundle.
 
 The popup can scan either controlled demo form and display the exact leak-checked JSON that would be
-eligible to leave the extension. The validated planner backend is available; extension-to-backend planning
-and local field execution are added in the next implementation chunk.
+eligible to leave the extension. **Plan and fill locally** sends that checked object to the planner, validates
+the returned action plan, asks before resolving critical identifiers, rescans for DOM changes, and fills
+approved values inside the page's isolated extension context. OTP, password-like, unknown, stale, missing,
+disabled, readonly and incompatible targets are rejected before execution.
+
+For a local demonstration:
+
+1. Run `npm run server` and `npm run build:extension`.
+2. Load `dist/extension` as an unpacked Chrome extension.
+3. Save only the fictional test profile from `tests/fixtures/fake-profile.js`.
+4. Open either page under `http://localhost:8787/demo/`.
+5. Use **Scan**, optionally inspect the exact payload, then choose **Plan and fill locally**.
+6. Approve the critical-identifier prompt and review the highlighted fields before submission.
 
 ## Secret handling
 

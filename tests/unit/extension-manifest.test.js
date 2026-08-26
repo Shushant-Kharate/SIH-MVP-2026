@@ -63,4 +63,14 @@ describe("Chrome extension shell", () => {
     assert.match(popupScript, /payloadJson\.textContent = JSON\.stringify/);
     assert.doesNotMatch(popupScript, /innerHTML/);
   });
+
+  it("exposes the locally validated plan-and-fill action", async () => {
+    const popupHtml = await readExtensionFile("pages/popup.html");
+    const popupScript = await readExtensionFile("src/popup.js");
+
+    assert.match(popupHtml, /id="plan-fill"/);
+    assert.match(popupScript, /MESSAGE_TYPES\.PLAN_REQUEST/);
+    assert.match(popupScript, /MESSAGE_TYPES\.VALIDATE_AND_EXECUTE/);
+    assert.match(popupScript, /critical identifier/);
+  });
 });

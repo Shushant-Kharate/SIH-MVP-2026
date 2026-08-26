@@ -50,14 +50,14 @@
         </div>
         <span class="run-action">View</span>
       </button>
-      <article class="action-card">
+      <button class="action-card action-card--button" id="plan-fill" type="button" disabled>
         <span class="step-number">03</span>
         <div>
           <h2>Plan and fill locally</h2>
           <p>Validate actions before resolving values.</p>
         </div>
-        <span class="coming-soon">Next</span>
-      </article>
+        <span class="run-action">Fill</span>
+      </button>
     </section>
 
     <section class="scan-result" id="scan-result" data-tone="neutral" role="status" hidden></section>
@@ -76,7 +76,7 @@
     </aside>
 
     <footer class="footer-status">
-      <span>Backend: not connected</span>
+      <span id="backend-status">Backend: not checked</span>
       <span id="available-count">0 profile categories available</span>
     </footer>
   </main>
