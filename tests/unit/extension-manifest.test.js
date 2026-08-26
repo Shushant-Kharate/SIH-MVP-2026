@@ -28,11 +28,7 @@ describe("Chrome extension shell", () => {
     assert.deepEqual(manifest.host_permissions, ["http://localhost:8787/*"]);
     assert.equal(JSON.stringify(manifest).includes("<all_urls>"), false);
     assert.equal(Object.hasOwn(manifest, "externally_connectable"), false);
-    assert.deepEqual(manifest.content_scripts, [{
-      matches: ["http://localhost:8787/demo/*"],
-      js: ["content.js"],
-      run_at: "document_idle",
-    }]);
+    assert.equal(Object.hasOwn(manifest, "content_scripts"), false);
   });
 
   it("defines all seven profile controls without inline scripts", async () => {

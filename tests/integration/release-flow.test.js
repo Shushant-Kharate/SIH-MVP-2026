@@ -33,16 +33,21 @@ after(async () => {
   });
 });
 
-async function runReleaseFlow(name, requestId) {
-  const html = await readFile(new URL(`../../demo/${name}`, import.meta.url), "utf8");
+async function runReleaseFlow(relativePath, requestId, scanOptions = {}) {
+  const html = await readFile(new URL(relativePath, import.meta.url), "utf8");
   const { document, window } = parseHTML(html);
-  const scan = scanDocument(document);
+  const scan = scanDocument(document, scanOptions);
   const request = createPlanningRequest({
     scanResult: createSafeScanResult(scan),
     availableProfileKeys: SUPPORTED_PROFILE_KEYS,
     requestId,
   });
   assertNoProfileLeak(request, FAKE_PROFILE);
+  if (scanOptions.externalPage === true) {
+    const serializedRequest = JSON.stringify(request);
+    assert.equal(serializedRequest.includes("applications.example.test"), false);
+    assert.equal(serializedRequest.includes("unrelated-account@example.test"), false);
+  }
 
   const plan = await requestPlannerPlan({
     request,
@@ -51,28 +56,29 @@ async function runReleaseFlow(name, requestId) {
   });
   assertNoProfileLeak(plan, FAKE_PROFILE);
 
+  const freshScan = scanDocument(document, scanOptions);
   const validated = validateActionPlan({
     plan,
     request,
-    scan,
+    scan: freshScan,
     availableProfileKeys: SUPPORTED_PROFILE_KEYS,
     criticalApproved: true,
   });
   const execution = await executeValidatedActions({
     actions: validated.actions,
-    scan,
+    scan: freshScan,
     profileValues: FAKE_PROFILE,
   });
   assert.equal(execution.ok, true);
 
-  const form = scan.elementByFieldId.get(validated.actions[0].target).closest("form");
+  const form = freshScan.elementByFieldId.get(validated.actions[0].target).closest("form");
   const requestFields = new Map(request.fields.map((field) => [field.fieldId, field]));
   const criticalCategories = validated.actions
     .filter((action) => requestFields.get(action.target)?.risk === "critical")
     .map((action) => action.profileKey);
   const guardAudit = [];
   armSubmissionGuard({
-    scan,
+    scan: freshScan,
     actions: validated.actions,
     filledCount: execution.filledCount,
     criticalCategories,
@@ -101,23 +107,47 @@ async function runReleaseFlow(name, requestId) {
   const safeArtifacts = JSON.stringify({ request, plan, audit: [...execution.auditEntries, ...guardAudit] });
   for (const rawValue of Object.values(FAKE_PROFILE)) assert.equal(safeArtifacts.includes(rawValue), false);
 
-  const blockedField = scan.fields.find((field) => field.classification.category === UNKNOWN_SENSITIVE);
-  if (blockedField) assert.equal(scan.elementByFieldId.get(blockedField.fieldId).value, "");
+  const blockedField = freshScan.fields.find((field) => field.classification.category === UNKNOWN_SENSITIVE);
+  if (blockedField) assert.equal(freshScan.elementByFieldId.get(blockedField.fieldId).value, "");
   return { filledCount: execution.filledCount, planner: plan.planner };
 }
 
 describe("release-candidate fallback flow", () => {
   it("completes two consecutive scholarship demonstrations", async () => {
     for (let run = 1; run <= 2; run += 1) {
-      const result = await runReleaseFlow("scholarship.html", `request-release-scholarship-${run}`);
+      const result = await runReleaseFlow(
+        "../../demo/scholarship.html",
+        `request-release-scholarship-${run}`,
+      );
       assert.deepEqual(result, { filledCount: 6, planner: "fallback" });
     }
   });
 
   it("completes two consecutive service demonstrations with OTP blocked", async () => {
     for (let run = 1; run <= 2; run += 1) {
-      const result = await runReleaseFlow("service-registration.html", `request-release-service-${run}`);
+      const result = await runReleaseFlow(
+        "../../demo/service-registration.html",
+        `request-release-service-${run}`,
+      );
       assert.deepEqual(result, { filledCount: 5, planner: "fallback" });
+    }
+  });
+
+  it("completes two user-selected external standard-form flows with minimized metadata", async () => {
+    for (let run = 1; run <= 2; run += 1) {
+      const result = await runReleaseFlow(
+        "../fixtures/external-standard-form.html",
+        `request-release-external-${run}`,
+        {
+          externalPage: true,
+          locationLike: {
+            protocol: "https:",
+            hostname: "applications.example.test",
+            pathname: "/apply/reordered",
+          },
+        },
+      );
+      assert.deepEqual(result, { filledCount: 7, planner: "fallback" });
     }
   });
 });

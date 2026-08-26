@@ -40,10 +40,47 @@ if (JSON.stringify(manifest).includes("<all_urls>")) addFinding(manifestPath, "b
 if (manifest.manifest_version !== 3) addFinding(manifestPath, "extension is not Manifest V3");
 if (Object.hasOwn(manifest, "externally_connectable")) addFinding(manifestPath, "externally connectable surface");
 
+const expectedPermissions = ["activeTab", "scripting", "storage"];
+if (JSON.stringify([...(manifest.permissions ?? [])].sort()) !== JSON.stringify(expectedPermissions.sort())) {
+  addFinding(manifestPath, "permissions differ from activeTab, scripting and storage allowlist");
+}
+const expectedPersistentHosts = ["http://localhost:8787/*"];
+if (JSON.stringify(manifest.host_permissions ?? []) !== JSON.stringify(expectedPersistentHosts)) {
+  addFinding(manifestPath, "persistent host permissions exceed the localhost planner/demo boundary");
+}
+if ((manifest.optional_host_permissions ?? []).length > 0) {
+  addFinding(manifestPath, "optional persistent host permissions are present");
+}
+
+if ((manifest.content_scripts ?? []).length > 0) {
+  addFinding(manifestPath, "static content script is registered; selected-tab injection must remain on demand");
+}
+if (manifest.content_security_policy?.extension_pages !== "script-src 'self'; object-src 'self'") {
+  addFinding(manifestPath, "extension page content security policy is not self-only");
+}
+
+const injectorPath = path.join(extensionSource, "src", "core", "content-injector.js");
+const injectorSource = await readFile(injectorPath, "utf8");
+if (!/files:\s*\["content\.js"\]/.test(injectorSource)) {
+  addFinding(injectorPath, "on-demand injection does not use the packaged content script");
+}
+if (!/allFrames:\s*false/.test(injectorSource)) {
+  addFinding(injectorPath, "on-demand injection is not restricted to the top frame");
+}
+if (/\bfunc\s*:/.test(injectorSource) || /\bworld\s*:\s*["']MAIN["']/.test(injectorSource)) {
+  addFinding(injectorPath, "on-demand injection uses inline code or the page main world");
+}
+
 const codePatterns = [
   { rule: "dynamic eval", pattern: /\beval\s*\(/ },
   { rule: "dynamic Function constructor", pattern: /\bnew\s+Function\s*\(/ },
   { rule: "remote script source", pattern: /<script[^>]+src=["']https?:\/\//i },
+  { rule: "page-wide body text collection", pattern: /document\.body\.(?:innerText|textContent)/ },
+  { rule: "full-page HTML collection", pattern: /document\.documentElement\.(?:innerHTML|outerHTML)/ },
+  { rule: "browser history access", pattern: /chrome\.history\b/ },
+  { rule: "browser cookie access", pattern: /chrome\.cookies\b/ },
+  { rule: "tab screenshot capture", pattern: /captureVisibleTab\s*\(/ },
+  { rule: "Chrome debugger access", pattern: /chrome\.debugger\b/ },
 ];
 const providerPatterns = [
   { rule: "OpenAI credential variable in extension", pattern: /OPENAI_API_KEY/ },

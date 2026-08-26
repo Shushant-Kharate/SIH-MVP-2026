@@ -8,7 +8,8 @@ The project is being implemented incrementally according to [IMPLEMENTATION_PLAN
 
 ```mermaid
 flowchart LR
-    P[Untrusted demo page] -->|labels, types, required state| S[Extension scanner]
+    P[User-selected untrusted HTTP/S page] -->|temporary activeTab access| E[Eligibility + on-demand scanner]
+    E -->|minimized labels, types, required state| S[Local classifier]
     V[(Session profile values)] --> L[Local privacy engine]
     S --> L
     L -->|leak-checked anonymous JSON| B[Local planner backend]
@@ -86,13 +87,15 @@ The current extension chunk provides:
 
 - a session-only seven-field local profile;
 - strict profile validation and normalization;
-- a popup showing profile readiness without displaying values;
-- a localhost-scoped DOM scanner with anonymous field IDs;
+- a popup showing profile readiness and selected-tab access without displaying values;
+- user-triggered, top-frame scanner injection on eligible HTTP/HTTPS pages via temporary `activeTab` access;
+- anonymous field IDs, bounded accessible-name discovery and external-page label minimization;
+- generic native-form support plus an explicitly experimental Google Forms adapter;
 - deterministic PII classification and blocked OTP/password detection;
 - value-independent form snapshot identifiers;
 - an allowlist-only sanitized planning-request builder;
 - exact and normalized profile-value leakage blocking;
-- an exact checked-JSON payload viewer in the popup;
+- compatibility counts and an exact checked-JSON payload viewer required before planning;
 - validated calls to the local fallback or remote planner;
 - a second local policy check against a fresh form snapshot;
 - native field filling with `input` and `change` event dispatch;
@@ -101,11 +104,12 @@ The current extension chunk provides:
 - a popup audit viewer with safe local clear controls;
 - an extension-owned review dialog that intercepts submission;
 - a one-use submission bypass that immediately rearms afterward;
-- minimal localhost-only host access;
+- no persistent all-sites host access; only the localhost planner/demo host is persistent;
 - no API credential or provider code in the browser bundle.
 
-The popup can scan either controlled demo form and display the exact leak-checked JSON that would be
-eligible to leave the extension. **Plan and fill locally** sends that checked object to the planner, validates
+The popup can be invoked on a user-selected eligible HTTP/HTTPS form and display the exact leak-checked
+JSON eligible to leave the extension. Planning remains disabled until that minimized JSON and its zero-match
+privacy result have been displayed. **Plan and fill locally** sends the checked object to the planner, validates
 the returned action plan, asks before resolving critical identifiers, rescans for DOM changes, and fills
 approved values inside the page's isolated extension context. OTP, password-like, unknown, stale, missing,
 disabled, readonly and incompatible targets are rejected before execution. A filled form's next submit
@@ -121,15 +125,16 @@ For a local demonstration:
 4. Open either controlled page:
    - Scholarship: `http://localhost:8787/demo/scholarship.html`
    - Citizen service: `http://localhost:8787/demo/service-registration.html`
-5. Use **Scan**, optionally inspect the exact payload, then choose **Plan and fill locally**.
+5. Use **Scan**, inspect the required exact payload and zero-match result, then choose **Plan and fill locally**.
 6. Approve the critical-identifier prompt and review the highlighted fields.
 7. Choose **View privacy audit** to inspect value-free events.
 8. Submit the form, review the extension confirmation dialog, then Cancel or **Submit once**.
 
-Before presenting, follow the Chrome-only cases in
-[`tests/manual/acceptance-checklist.md`](./tests/manual/acceptance-checklist.md) and record the operator,
-Chrome version, and result for every row. Automated checks do not replace loading the unpacked extension
-on the presentation laptop.
+Before presenting, complete both the controlled-flow
+[`acceptance-checklist.md`](./tests/manual/acceptance-checklist.md) and the 13-case
+[`external-page-checklist.md`](./tests/manual/external-page-checklist.md). Record the operator, Chrome
+version and result for every row. The external checklist includes three team-created Google Forms run twice;
+automated fixtures do not prove compatibility with Google's current live markup.
 
 The complete five-minute narration, role split, reset sequence and failure recovery are in
 [DEMO_SCRIPT.md](./DEMO_SCRIPT.md). Use [TEST_MATRIX.md](./TEST_MATRIX.md) to connect each claim to
@@ -144,7 +149,11 @@ to request ID, field count, planner type, duration, outcome, and a safe error co
 
 ## Known MVP limitations
 
-- It supports only the two localhost demonstration forms, not arbitrary websites or cross-origin frames.
+- It supports user-selected standard native HTML forms whose accessible metadata and framework behavior
+  are compatible; it does not promise to fill every form or website.
+- Google Forms support is experimental and limited to tested native short-answer, paragraph and compatible
+  date controls. Custom dropdowns, grids, file uploads and section navigation require manual completion.
+- Cross-origin iframe contents, browser/internal pages, extension stores and local `file://` pages are excluded.
 - Classification is deterministic and label-driven; ambiguous or unfamiliar fields can be left unfilled.
 - The seven-value profile uses temporary `chrome.storage.session`, not a production encrypted vault.
 - Exact and normalized leak checks reduce accidental disclosure but are not a formal DLP guarantee.
@@ -174,4 +183,5 @@ Start with this README, then read these documents in order:
 2. [THREAT_MODEL.md](./THREAT_MODEL.md) — what is protected, assumed and still risky.
 3. [DEMO_SCRIPT.md](./DEMO_SCRIPT.md) — the exact five-minute presentation and recovery path.
 4. [TEST_MATRIX.md](./TEST_MATRIX.md) — claim-to-test traceability and evidence locations.
-5. [Manual acceptance checklist](./tests/manual/acceptance-checklist.md) — Chrome release gate.
+5. [Controlled acceptance checklist](./tests/manual/acceptance-checklist.md) — localhost Chrome gate.
+6. [External-page checklist](./tests/manual/external-page-checklist.md) — selected-tab and Google Forms gate.

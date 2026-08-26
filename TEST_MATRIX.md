@@ -19,7 +19,7 @@ Record the date, commit, Node version, Chrome version and operator in the releas
 
 | ID | Claim | Primary automated evidence | Expected result |
 | --- | --- | --- | --- |
-| C01 | Manifest is MV3 and restricted to localhost | `tests/unit/extension-manifest.test.js`, `npm run verify:static` | No `<all_urls>`, external connection or remote/dynamic code |
+| C01 | Manifest is MV3 with temporary selected-tab access and only localhost persistent host access | `tests/unit/extension-manifest.test.js`, `npm run verify:static` | Exact `activeTab`/`scripting`/`storage` allowlist; no `<all_urls>`, broad HTTPS host, child-frame or remote/dynamic code |
 | C02 | Profile accepts only the seven supported categories and valid fictional shapes | `tests/unit/profile-validation.test.js`, `profile-store.test.js` | Invalid/unknown values rejected; status exposes no values |
 | C03 | Scanner supports labels, ARIA, placeholders, names, selects, radios and checkboxes | `tests/unit/field-scanner.test.js`, `demo-forms.test.js` | Both forms produce stable safe registries |
 | C04 | OTP/password-like fields are critical and unsupported | `tests/unit/pii-classifier.test.js`, `demo-forms.test.js` | Category is `UNKNOWN_SENSITIVE`; no private fill action |
@@ -38,16 +38,30 @@ Record the date, commit, Node version, Chrome version and operator in the releas
 | C17 | Both forms complete twice through the actual HTTP API | `tests/integration/release-flow.test.js` | Two clean scholarship and service flows; OTP remains empty |
 | C18 | Repository contains no likely secret and extension contains no provider credential | `npm run verify:secrets`, `npm run verify:static` | Both scans pass |
 | C19 | Required documentation and referenced local commands/links remain valid | `npm run verify:docs` | Required sections/files exist; local links and npm scripts resolve |
+| C20 | A previously unseen eligible HTTP/S tab can receive the packaged scanner only after invocation | `page-eligibility.test.js`, `content-injector.test.js` | Protected schemes rejected before injection; selected top frame only; duplicate injection avoided |
+| C21 | External labels/options are minimized before the planning boundary | `label-sanitizer.test.js`, `external-privacy-boundary.test.js` | Category tokens replace recognized labels; private patterns redacted; arbitrary options withheld |
+| C22 | Accessible-name discovery is bounded and position-independent | `accessible-name.test.js`, `field-scanner.test.js`, external fixture | Explicit/wrapping/ARIA/question labels work; account/body/helper text excluded |
+| C23 | Framework-controlled native fields are verified after write | `framework-fill-flow.test.js`, `action-executor.test.js` | Retained values pass; replaced/reverted targets stop safely |
+| C24 | Google Forms is a conservative experimental subset | `form-adapters.test.js`, Google-like fixture | Native text-like questions supported; custom dropdown/radio/file widgets counted and untouched |
+| C25 | Popup reports access/compatibility and requires privacy inspection before planning | `popup-view-model.test.js`, `extension-manifest.test.js` | Four counts shown; navigation requires rescan; Fill unlocks only after zero-match payload proof |
+| C26 | External standard form completes the release flow twice | `release-flow.test.js`, `external-standard-form.html` | Seven fictional categories fill; OTP remains empty; URL/account text absent; confirmation remains guarded |
 
 ## Manual Chrome matrix
 
-The authoritative operator table is `tests/manual/acceptance-checklist.md`. Its 13 cases cover:
+The controlled-demo operator table is `tests/manual/acceptance-checklist.md`. Its 13 cases cover:
 
 - extension load, fake session profile and both controlled pages;
 - field classification and exact sanitized payload inspection;
 - fallback plan and local fill;
 - critical approval, OTP blocking and metadata-only audit;
 - Cancel, Submit once and clean reset/repeat.
+
+The authoritative external-site table is `tests/manual/external-page-checklist.md`. Its X01–X13 cases cover:
+
+- unseen/reordered/framework-controlled HTTP/S forms and unselected-tab isolation;
+- three team-created Google Forms, each run twice on the recorded Chrome version;
+- navigation invalidation, hostile labels, sensitive-field refusal and protected-page rejection;
+- critical approval and guarded submission where the site's normal form flow is compatible.
 
 No release is approved while any row says `MANUAL PENDING` or FAIL.
 
@@ -70,14 +84,14 @@ team before adding or sharing them.
 
 ## Latest automated baseline
 
-Baseline after the Chunk 10 documentation verifier was added:
+Baseline after the external-page release section was finalized on 2026-08-26:
 
-- Functional suite: 124/124 pass.
-- Privacy suite: 48/48 pass.
-- Focused acceptance suite: 17/17 pass.
+- Functional suite: 171/171 pass.
+- Privacy suite: 79/79 pass.
+- Focused acceptance suite: 18/18 pass.
 - Static extension security: pass.
-- Secret scan: pass across 89 repository files.
-- Documentation verification: 4/4 pass.
+- Secret scan: pass across 162 repository files.
+- Documentation verification: 5/5 pass.
 
 These counts are historical evidence, not hard-coded release expectations; adding tests changes them.
 Use the current command exit status as the release decision.
@@ -93,8 +107,10 @@ Complete this table without inserting any private value or API key.
 | Node/npm version | PENDING |
 | Chrome version | PENDING |
 | Presentation laptop/operator | PENDING |
-| `npm run verify` | PENDING |
-| Manual A01–A13 | PENDING |
+| `npm run verify` | PASS — 171 functional, 79 privacy, static/secret/docs gates |
+| Controlled manual A01–A13 | PENDING |
+| External manual X01–X13 | PENDING |
+| Google Forms 1–3 two clean runs each | PENDING |
 | Scholarship clean runs (required: 2) | PENDING |
 | Service clean runs (required: 2) | PENDING |
 | Evidence reviewed by | PENDING |
@@ -103,5 +119,6 @@ Complete this table without inserting any private value or API key.
 ## Failure rule
 
 Any private-value match, silent critical fill, unexpected OTP fill, unvalidated action execution, missing
-submission interception, secret scan failure or reproducibility failure blocks the release. Record the
+submission interception where claimed, unrelated-tab access, unsupported-widget action, secret scan failure
+or reproducibility failure blocks the release. Record the
 failure, fix it, rerun the entire automated gate, then restart the two-run manual count from zero.

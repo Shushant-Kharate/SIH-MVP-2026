@@ -14,6 +14,7 @@ const requiredDocuments = [
   "TEST_MATRIX.md",
   "demo-evidence/README.md",
   "tests/manual/acceptance-checklist.md",
+  "tests/manual/external-page-checklist.md",
 ];
 
 function readDocument(relativePath) {
@@ -46,6 +47,26 @@ test("README covers the Chunk 10 onboarding requirements", () => {
   ]) {
     assert.ok(readme.includes(expectedText), `README should include: ${expectedText}`);
   }
+});
+
+test("release documentation describes selected-tab scope and experimental compatibility accurately", () => {
+  const readme = readDocument("README.md");
+  const architecture = readDocument("ARCHITECTURE.md");
+  const threatModel = readDocument("THREAT_MODEL.md");
+  const demoScript = readDocument("DEMO_SCRIPT.md");
+  const testMatrix = readDocument("TEST_MATRIX.md");
+  const externalChecklist = readDocument("tests/manual/external-page-checklist.md");
+
+  assert.match(readme, /user-selected standard native HTML forms/i);
+  assert.match(readme, /Google Forms support is experimental/i);
+  assert.match(architecture, /temporary\s+`activeTab`/i);
+  assert.match(threatModel, /user-triggered `activeTab`/i);
+  assert.match(demoScript, /not\s+a claim that every website works/i);
+  assert.match(testMatrix, /External manual X01–X13/);
+  for (let caseNumber = 1; caseNumber <= 13; caseNumber += 1) {
+    assert.match(externalChecklist, new RegExp(`\\| X${String(caseNumber).padStart(2, "0")} \\|`));
+  }
+  assert.doesNotMatch(demoScript, /prototype is intentionally localhost-only/i);
 });
 
 test("relative Markdown links resolve to repository files", () => {
