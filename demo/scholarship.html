@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Controlled scholarship form for testing PrivacyFill AI.">
+  <title>Scholarship Application — PrivacyFill Demo</title>
+  <link rel="stylesheet" href="./demo.css">
+  <script src="./demo.js" defer></script>
+</head>
+<body>
+  <header class="site-header">
+    <div class="header-inner">
+      <a class="brand" href="./index.html" aria-label="PrivacyFill AI demo home">
+        <span class="brand-mark" aria-hidden="true">P</span>
+        <span>PrivacyFill AI</span>
+      </a>
+      <span class="demo-badge">Demo data only</span>
+    </div>
+  </header>
+
+  <main class="page-shell">
+    <a class="back-link" href="./index.html">← Back to demo forms</a>
+
+    <div class="form-layout">
+      <section class="form-card" aria-labelledby="scholarship-title">
+        <header class="form-heading">
+          <span class="eyebrow">Form A · Explicit HTML labels</span>
+          <h1 id="scholarship-title">National Scholarship Application</h1>
+          <p class="form-intro">
+            A controlled education-benefit form containing common Indian identity fields. Use only
+            the fictional profile supplied with the project.
+          </p>
+        </header>
+
+        <form data-demo-form="scholarship" autocomplete="off">
+          <div class="field-grid">
+            <div class="field field--wide">
+              <label class="required" for="scholarship-name">Applicant full name</label>
+              <input id="scholarship-name" name="applicantName" type="text" autocomplete="name" required>
+            </div>
+
+            <div class="field">
+              <label class="required" for="scholarship-email">Email address</label>
+              <input id="scholarship-email" name="email" type="email" autocomplete="email" required>
+            </div>
+
+            <div class="field">
+              <label class="required" for="scholarship-phone">Mobile number</label>
+              <input
+                id="scholarship-phone"
+                name="mobileNumber"
+                type="tel"
+                autocomplete="tel"
+                inputmode="numeric"
+                pattern="[6-9][0-9]{9}"
+                maxlength="10"
+                required
+              >
+              <span class="field-help">Enter a fictional 10-digit Indian mobile number.</span>
+            </div>
+
+            <div class="field">
+              <label class="required" for="scholarship-dob">Date of birth</label>
+              <input id="scholarship-dob" name="dateOfBirth" type="date" autocomplete="bday" required>
+            </div>
+
+            <div class="field">
+              <label class="required" for="scholarship-aadhaar">Aadhaar number</label>
+              <input
+                id="scholarship-aadhaar"
+                name="aadhaarNumber"
+                type="text"
+                inputmode="numeric"
+                pattern="[0-9]{12}"
+                maxlength="12"
+                aria-describedby="aadhaar-help"
+                required
+              >
+              <span class="field-help" id="aadhaar-help">Demo format: 12 digits. Do not enter a real identifier.</span>
+            </div>
+
+            <div class="field field--wide">
+              <label class="required" for="scholarship-address">Permanent residential address</label>
+              <textarea id="scholarship-address" name="permanentAddress" autocomplete="street-address" required></textarea>
+            </div>
+
+            <div class="field">
+              <label class="required" for="scholarship-course">Programme of study</label>
+              <select id="scholarship-course" name="course" required>
+                <option value="">Select a programme</option>
+                <option>Engineering</option>
+                <option>Medicine</option>
+                <option>Arts and Humanities</option>
+                <option>Science</option>
+              </select>
+            </div>
+
+            <div class="field">
+              <label for="scholarship-income">Annual family income (₹)</label>
+              <input id="scholarship-income" name="annualIncome" type="number" min="0" step="1000">
+              <span class="field-help">A non-profile field that may be completed manually.</span>
+            </div>
+
+            <div class="field field--wide checkbox-row">
+              <label for="scholarship-consent">
+                <input id="scholarship-consent" name="applicantConsent" type="checkbox" required>
+                <span>I confirm that this is fictional demonstration data and agree to review the form before submission.</span>
+              </label>
+            </div>
+          </div>
+
+          <div class="form-actions">
+            <button type="submit">Review and submit locally</button>
+            <button type="reset">Reset form</button>
+          </div>
+        </form>
+
+        <div class="form-outcome" data-form-outcome tabindex="-1" role="status" hidden>
+          <strong>Local demonstration complete.</strong> No values were transmitted. Use Reset form to
+          repeat the flow.
+        </div>
+      </section>
+
+      <aside class="side-panel" aria-label="Demonstration notes">
+        <section class="side-card">
+          <h2>Scanner challenge</h2>
+          <p>Every principal field uses an explicit label connected through its <code>for</code> attribute.</p>
+        </section>
+        <section class="side-card">
+          <h2>Expected private categories</h2>
+          <ul>
+            <li>Name, email and phone</li>
+            <li>Date of birth and address</li>
+            <li>Aadhaar as critical</li>
+          </ul>
+        </section>
+        <section class="side-card">
+          <h2>Safety rule</h2>
+          <p>The planner may reference these categories, but the extension must resolve their values locally.</p>
+        </section>
+      </aside>
+    </div>
+  </main>
+</body>
+</html>

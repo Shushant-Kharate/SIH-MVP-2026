@@ -1,0 +1,37 @@
+{
+  "manifest_version": 3,
+  "name": "PrivacyFill AI",
+  "version": "0.1.0",
+  "description": "Plan with anonymous form metadata and keep real profile values local.",
+  "action": {
+    "default_title": "PrivacyFill AI",
+    "default_popup": "pages/popup.html"
+  },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "options_page": "pages/profile.html",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage"
+  ],
+  "host_permissions": [
+    "http://localhost:8787/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "http://localhost:8787/demo/*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'"
+  }
+}

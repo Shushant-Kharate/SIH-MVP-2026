@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Controlled citizen-service form for testing PrivacyFill AI.">
+  <title>Citizen Service Registration — PrivacyFill Demo</title>
+  <link rel="stylesheet" href="./demo.css">
+  <script src="./demo.js" defer></script>
+</head>
+<body data-theme="civic">
+  <header class="site-header">
+    <div class="header-inner">
+      <a class="brand" href="./index.html" aria-label="PrivacyFill AI demo home">
+        <span class="brand-mark" aria-hidden="true">P</span>
+        <span>PrivacyFill AI</span>
+      </a>
+      <span class="demo-badge">Demo data only</span>
+    </div>
+  </header>
+
+  <main class="page-shell">
+    <a class="back-link" href="./index.html">← Back to demo forms</a>
+
+    <div class="form-layout">
+      <section class="form-card" aria-labelledby="service-title">
+        <header class="form-heading">
+          <span class="eyebrow">Form B · Mixed field metadata</span>
+          <h1 id="service-title">Citizen Service Registration</h1>
+          <p class="form-intro">
+            This controlled form intentionally uses wrapping labels, ARIA text, placeholders and field
+            names to test scanner resilience. It does not represent a real government portal.
+          </p>
+        </header>
+
+        <form data-demo-form="service-registration" autocomplete="off">
+          <div class="field-grid">
+            <label class="field-label field--wide">
+              <span class="required">Citizen full name</span>
+              <input name="citizenFullName" type="text" autocomplete="name" required>
+            </label>
+
+            <div class="field">
+              <span class="visible-field-label required">Primary mobile</span>
+              <input
+                name="primaryMobile"
+                type="tel"
+                aria-label="Primary mobile number"
+                autocomplete="tel"
+                inputmode="numeric"
+                pattern="[6-9][0-9]{9}"
+                maxlength="10"
+                required
+              >
+            </div>
+
+            <div class="field">
+              <span class="visible-field-label required" id="pan-field-label">PAN identifier</span>
+              <input
+                name="taxIdentifier"
+                type="text"
+                aria-labelledby="pan-field-label"
+                placeholder="PAN number (ABCDE1234F)"
+                pattern="[A-Z]{5}[0-9]{4}[A-Z]"
+                maxlength="10"
+                required
+              >
+            </div>
+
+            <div class="field">
+              <label class="required" for="service-dob">Birth date</label>
+              <input id="service-dob" name="birthDate" type="date" autocomplete="bday" required>
+            </div>
+
+            <label class="field-label">
+              <span class="required">District</span>
+              <select name="district" required>
+                <option value="">Choose district</option>
+                <option>Pune</option>
+                <option>Nagpur</option>
+                <option>Nashik</option>
+                <option>Aurangabad</option>
+              </select>
+            </label>
+
+            <div class="field field--wide">
+              <label class="required" for="service-address">Current postal address</label>
+              <textarea id="service-address" name="postalAddress" autocomplete="street-address" required></textarea>
+            </div>
+
+            <fieldset class="radio-fieldset field--wide">
+              <legend class="required">Applicant category</legend>
+              <div class="radio-options">
+                <label class="radio-option">
+                  <input type="radio" name="applicantCategory" value="student" required>
+                  Student
+                </label>
+                <label class="radio-option">
+                  <input type="radio" name="applicantCategory" value="employed">
+                  Employed
+                </label>
+                <label class="radio-option">
+                  <input type="radio" name="applicantCategory" value="other">
+                  Other
+                </label>
+              </div>
+            </fieldset>
+
+            <div class="field">
+              <span class="visible-field-label">One-time password</span>
+              <input
+                name="verificationCode"
+                type="text"
+                aria-label="One-time password OTP"
+                autocomplete="one-time-code"
+                inputmode="numeric"
+                maxlength="6"
+              >
+              <span class="field-help">Intentionally unsupported: the extension must classify and block this field.</span>
+            </div>
+
+            <div class="field">
+              <span class="visible-field-label">Preferred appointment date</span>
+              <input name="preferredAppointmentDate" type="date" aria-label="Preferred appointment date">
+              <span class="field-help">Task information, not a saved-profile date of birth.</span>
+            </div>
+
+            <div class="field field--wide checkbox-row">
+              <label>
+                <input type="checkbox" name="reviewDeclaration" required>
+                <span>I will review all locally filled information before allowing this demonstration to submit.</span>
+              </label>
+            </div>
+          </div>
+
+          <div class="form-actions">
+            <button type="submit">Review and submit locally</button>
+            <button type="reset">Reset form</button>
+          </div>
+        </form>
+
+        <div class="form-outcome" data-form-outcome tabindex="-1" role="status" hidden>
+          <strong>Local demonstration complete.</strong> The page intercepted submission and sent no
+          values to an external service.
+        </div>
+      </section>
+
+      <aside class="side-panel" aria-label="Demonstration notes">
+        <section class="side-card">
+          <h2>Scanner challenge</h2>
+          <p>Fields deliberately mix wrapping labels, ARIA labels, placeholders, names and legends.</p>
+        </section>
+        <section class="side-card">
+          <h2>Expected behavior</h2>
+          <ul>
+            <li>Map name, phone, PAN, DOB and address</li>
+            <li>Keep select and radio options safe</li>
+            <li>Block OTP from automatic filling</li>
+          </ul>
+        </section>
+        <section class="side-card">
+          <h2>Trust boundary</h2>
+          <p>No current field value should enter the anonymous field registry.</p>
+        </section>
+      </aside>
+    </div>
+  </main>
+</body>
+</html>

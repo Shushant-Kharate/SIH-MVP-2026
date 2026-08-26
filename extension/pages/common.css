@@ -1,0 +1,155 @@
+:root {
+  color-scheme: light;
+  --ink: #172033;
+  --muted: #66728a;
+  --line: #dce3ee;
+  --surface: #ffffff;
+  --surface-soft: #f4f7fb;
+  --brand: #2457d6;
+  --brand-dark: #173b9b;
+  --good: #176245;
+  --good-bg: #dff7ee;
+  --warning: #76520c;
+  --warning-bg: #fff4d6;
+  --danger: #b42318;
+  --danger-bg: #feeceb;
+  --shadow: 0 18px 45px rgb(24 38 70 / 12%);
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  color: var(--ink);
+  background:
+    radial-gradient(circle at top right, rgb(70 108 224 / 12%), transparent 28rem),
+    var(--surface-soft);
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible {
+  outline: 3px solid rgb(36 87 214 / 22%);
+  outline-offset: 2px;
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 850;
+  letter-spacing: -0.025em;
+}
+
+.brand-mark {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 11px;
+  color: white;
+  background: linear-gradient(145deg, var(--brand), #6c8dff);
+  box-shadow: 0 8px 18px rgb(36 87 214 / 25%);
+}
+
+.eyebrow {
+  margin: 0 0 8px;
+  color: var(--brand);
+  font-size: 0.72rem;
+  font-weight: 850;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.notice {
+  border: 1px solid #f0d898;
+  border-radius: 14px;
+  padding: 13px 15px;
+  color: var(--warning);
+  background: var(--warning-bg);
+  font-size: 0.84rem;
+  line-height: 1.5;
+}
+
+.status-message {
+  border-radius: 12px;
+  padding: 11px 13px;
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
+.status-message[data-tone="neutral"] {
+  color: var(--muted);
+  background: #edf1f7;
+}
+
+.status-message[data-tone="success"] {
+  color: var(--good);
+  background: var(--good-bg);
+}
+
+.status-message[data-tone="error"] {
+  color: var(--danger);
+  background: var(--danger-bg);
+}
+
+.button {
+  min-height: 44px;
+  border: 0;
+  border-radius: 12px;
+  padding: 10px 16px;
+  font-weight: 780;
+}
+
+.button--primary {
+  color: white;
+  background: var(--brand);
+  box-shadow: 0 10px 22px rgb(36 87 214 / 20%);
+}
+
+.button--primary:hover {
+  background: var(--brand-dark);
+}
+
+.button--secondary {
+  color: var(--ink);
+  background: #e9eef6;
+}
+
+.button--danger {
+  color: var(--danger);
+  background: var(--danger-bg);
+}
+
+.button:disabled {
+  color: #8a94a8;
+  background: #edf0f5;
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
