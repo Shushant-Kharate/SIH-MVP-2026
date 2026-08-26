@@ -81,7 +81,7 @@ async function handleContentMessage(message) {
           criticalCategories,
           onAudit: recordDeferredAudit,
         });
-        const result = executeValidatedActions({
+        const result = await executeValidatedActions({
           actions: validated.actions,
           scan: freshScan,
           profileValues: message.payload?.profileValues ?? {},

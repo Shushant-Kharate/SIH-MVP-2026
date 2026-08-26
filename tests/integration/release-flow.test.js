@@ -58,7 +58,7 @@ async function runReleaseFlow(name, requestId) {
     availableProfileKeys: SUPPORTED_PROFILE_KEYS,
     criticalApproved: true,
   });
-  const execution = executeValidatedActions({
+  const execution = await executeValidatedActions({
     actions: validated.actions,
     scan,
     profileValues: FAKE_PROFILE,

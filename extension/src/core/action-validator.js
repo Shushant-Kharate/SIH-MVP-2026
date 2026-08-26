@@ -41,7 +41,7 @@ function validateTargetState(action, actionIndex, requestField, scanField, eleme
     return false;
   }
   if (!isConnected(element)) {
-    addError(errors, "TARGET_DISCONNECTED", actionIndex, action.target);
+    addError(errors, "TARGET_REPLACED", actionIndex, action.target);
     return false;
   }
   if (!isVisible(element)) {
