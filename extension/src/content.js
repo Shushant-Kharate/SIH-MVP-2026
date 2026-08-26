@@ -6,6 +6,7 @@ import { createSafeScanResult, scanDocument } from "./core/field-scanner.js";
 import { armSubmissionGuard } from "./ui/confirmation-overlay.js";
 
 let currentScan = null;
+const INSTALLATION_MARKER = "__privacyFillContentScriptV1";
 
 function success(data) {
   return { ok: true, data, error: null };
@@ -33,6 +34,9 @@ function recordDeferredAudit(entry) {
 
 async function handleContentMessage(message) {
   switch (message?.type) {
+    case MESSAGE_TYPES.PING_CONTENT_SCRIPT:
+      return success({ ready: true, version: 1 });
+
     case MESSAGE_TYPES.SCAN_FORM:
       try {
         currentScan = scanDocument(document);
@@ -108,7 +112,15 @@ async function handleContentMessage(message) {
     }
 }
 
-chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-  handleContentMessage(message).then(sendResponse);
-  return true;
-});
+if (!globalThis[INSTALLATION_MARKER]) {
+  Object.defineProperty(globalThis, INSTALLATION_MARKER, {
+    value: true,
+    configurable: false,
+    enumerable: false,
+    writable: false,
+  });
+  chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+    handleContentMessage(message).then(sendResponse);
+    return true;
+  });
+}

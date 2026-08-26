@@ -1,4 +1,5 @@
 import { MESSAGE_TYPES } from "../../shared/message-types.js";
+import { ensureContentScript } from "./core/content-injector.js";
 
 const title = document.querySelector("#profile-status-title");
 const copy = document.querySelector("#profile-status-copy");
@@ -21,6 +22,7 @@ const auditList = document.querySelector("#audit-list");
 const clearAuditButton = document.querySelector("#clear-audit");
 
 let latestScanResult = null;
+let latestScanTab = null;
 let profileReady = false;
 
 async function sendMessage(type, payload = undefined) {
@@ -72,6 +74,29 @@ function renderScanResult(text, tone) {
   scanResult.textContent = text;
 }
 
+async function getActiveTab() {
+  if (!globalThis.chrome?.tabs?.query) throw new Error("ACTIVE_TAB_MISSING");
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (!Number.isInteger(tab?.id)) throw new Error("ACTIVE_TAB_MISSING");
+  return tab;
+}
+
+function clearLatestScan() {
+  latestScanResult = null;
+  latestScanTab = null;
+  inspectPayloadButton.disabled = true;
+  planFillButton.disabled = true;
+  payloadPanel.hidden = true;
+}
+
+async function scanStillMatchesActiveTab() {
+  if (!latestScanResult || !latestScanTab) return false;
+  const tab = await getActiveTab();
+  const matches = tab.id === latestScanTab.id && tab.url === latestScanTab.url;
+  if (!matches) clearLatestScan();
+  return matches;
+}
+
 function renderAudit(entries) {
   auditList.replaceChildren();
   const recentEntries = entries.slice(-30).reverse();
@@ -104,21 +129,22 @@ async function toggleAudit() {
 }
 
 async function scanActiveTab() {
-  if (!globalThis.chrome?.tabs?.query || !globalThis.chrome?.tabs?.sendMessage) {
-    renderScanResult("Open the popup from the installed extension on a controlled demo form.", "error");
+  if (
+    !globalThis.chrome?.tabs?.query
+    || !globalThis.chrome?.tabs?.sendMessage
+    || !globalThis.chrome?.scripting?.executeScript
+  ) {
+    renderScanResult("Open the popup from the installed Chrome extension on a webpage.", "error");
     return;
   }
 
   scanButton.disabled = true;
-  latestScanResult = null;
-  inspectPayloadButton.disabled = true;
-  planFillButton.disabled = true;
-  payloadPanel.hidden = true;
+  clearLatestScan();
   renderScanResult("Scanning safe field metadata…", "neutral");
 
   try {
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (!tab?.id) throw new Error("No active tab");
+    const tab = await getActiveTab();
+    await ensureContentScript({ tab });
 
     const response = await chrome.tabs.sendMessage(tab.id, { type: MESSAGE_TYPES.SCAN_FORM });
     if (!response?.ok) {
@@ -128,14 +154,18 @@ async function scanActiveTab() {
 
     const result = response.data;
     latestScanResult = result;
+    latestScanTab = { id: tab.id, url: tab.url };
     inspectPayloadButton.disabled = !profileReady;
     planFillButton.disabled = !profileReady;
     renderScanResult(
       `Detected ${result.fieldCount} fields · ${result.privateFieldCount} private · ${result.blockedFieldCount} blocked · ${result.snapshotId}`,
       "success",
     );
-  } catch {
-    renderScanResult("Open one of the localhost demo forms, then try Scan again.", "error");
+  } catch (error) {
+    renderScanResult(
+      error?.message ?? "PrivacyFill could not access this selected webpage. Reload it and try again.",
+      "error",
+    );
   } finally {
     scanButton.disabled = false;
   }
@@ -144,6 +174,16 @@ async function scanActiveTab() {
 async function planAndFill() {
   if (!latestScanResult) {
     renderScanResult("Scan the current form before requesting a plan.", "error");
+    return;
+  }
+  try {
+    if (!await scanStillMatchesActiveTab()) {
+      renderScanResult("The selected tab changed after scanning. Scan the current page again.", "error");
+      return;
+    }
+  } catch {
+    clearLatestScan();
+    renderScanResult("The selected tab is no longer available. Open the form and scan again.", "error");
     return;
   }
 
@@ -204,6 +244,16 @@ async function planAndFill() {
 async function inspectSafePayload() {
   if (!latestScanResult) {
     renderScanResult("Scan the current form before building a safe payload.", "error");
+    return;
+  }
+  try {
+    if (!await scanStillMatchesActiveTab()) {
+      renderScanResult("The selected tab changed after scanning. Scan the current page again.", "error");
+      return;
+    }
+  } catch {
+    clearLatestScan();
+    renderScanResult("The selected tab is no longer available. Open the form and scan again.", "error");
     return;
   }
 

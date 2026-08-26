@@ -88,4 +88,18 @@ describe("Chrome extension shell", () => {
     assert.doesNotMatch(popupScript, /innerHTML/);
     assert.doesNotMatch(confirmationScript, /innerHTML/);
   });
+
+  it("injects the packaged scanner only after a selected-tab ping", async () => {
+    const popupScript = await readExtensionFile("src/popup.js");
+    const injectorScript = await readExtensionFile("src/core/content-injector.js");
+    const contentScript = await readExtensionFile("src/content.js");
+
+    assert.match(popupScript, /ensureContentScript/);
+    assert.match(injectorScript, /PING_CONTENT_SCRIPT/);
+    assert.match(injectorScript, /scriptingApi\.executeScript/);
+    assert.match(injectorScript, /files: \["content\.js"\]/);
+    assert.match(contentScript, /__privacyFillContentScriptV1/);
+    assert.match(contentScript, /PING_CONTENT_SCRIPT/);
+    assert.equal(JSON.stringify(JSON.parse(await readExtensionFile("manifest.json"))).includes("<all_urls>"), false);
+  });
 });
