@@ -4,7 +4,11 @@ import {
   assertValidPlanningResponse,
   ContractValidationError,
 } from "../../shared/contracts.js";
-import { appendAuditEntries } from "./core/audit-log.js";
+import {
+  appendAuditEntries,
+  clearAuditEntries,
+  getAuditEntries,
+} from "./core/audit-log.js";
 import {
   clearSessionProfile,
   getSessionProfile,
@@ -94,6 +98,34 @@ async function handleMessage(message) {
         return success(await clearSessionProfile());
       } catch {
         return failure("PROFILE_CLEAR_FAILED", "The session profile could not be cleared.");
+      }
+
+    case MESSAGE_TYPES.GET_AUDIT_LOG:
+      try {
+        const entries = await getAuditEntries();
+        return success({ entries, entryCount: entries.length });
+      } catch {
+        return failure("AUDIT_READ_FAILED", "The local audit history could not be read.");
+      }
+
+    case MESSAGE_TYPES.CLEAR_AUDIT_LOG:
+      try {
+        await clearAuditEntries();
+        return success({ entries: [], entryCount: 0 });
+      } catch {
+        return failure("AUDIT_CLEAR_FAILED", "The local audit history could not be cleared.");
+      }
+
+    case MESSAGE_TYPES.APPEND_AUDIT_EVENTS:
+      try {
+        const entries = message.payload?.entries;
+        if (!Array.isArray(entries) || entries.length === 0 || entries.length > 20) {
+          return failure("AUDIT_EVENTS_INVALID", "Audit metadata was rejected.");
+        }
+        const entryCount = await appendAuditEntries(entries);
+        return success({ entryCount });
+      } catch {
+        return failure("AUDIT_WRITE_FAILED", "Audit metadata could not be recorded.");
       }
 
     case MESSAGE_TYPES.GET_SANITIZED_PAYLOAD:
@@ -201,6 +233,8 @@ async function handleMessage(message) {
           filledCount: result.data.filledCount,
           actionCount: result.data.actionCount,
           auditRecorded,
+          submissionGuardArmed: result.data.submissionGuardArmed === true,
+          guardedForm: result.data.guardedForm,
         });
       } catch (error) {
         if (error instanceof ProfileLeakError) {

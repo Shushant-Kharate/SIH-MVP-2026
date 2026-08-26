@@ -66,4 +66,26 @@ describe("privacy-safe audit log", () => {
     await clearAuditEntries();
     assert.deepEqual(await getAuditEntries(), []);
   });
+
+  it("resanitizes stored audit data before returning it to the UI", async () => {
+    const storage = installSessionStorage();
+    storage[AUDIT_STORAGE_KEY] = [{
+      timestamp: 10,
+      fieldId: "FIELD_1<script>",
+      profileKey: "PROFILE.PASSWORD",
+      action: "submit",
+      status: "invented",
+      durationMs: -10,
+      code: "BAD CODE",
+      value: FAKE_PROFILE[PROFILE_KEYS.NAME],
+    }];
+
+    const [entry] = await getAuditEntries();
+    assert.equal(entry.fieldId, "FIELD_1script");
+    assert.equal(entry.profileKey, null);
+    assert.equal(entry.action, "unknown");
+    assert.equal(entry.status, "failed");
+    assert.equal(entry.durationMs, 0);
+    assert.equal(JSON.stringify(entry).includes(FAKE_PROFILE[PROFILE_KEYS.NAME]), false);
+  });
 });

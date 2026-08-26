@@ -40,7 +40,9 @@ export async function appendAuditEntries(entries) {
 
 export async function getAuditEntries() {
   const stored = await requireSessionStorage().get(AUDIT_STORAGE_KEY);
-  return Array.isArray(stored[AUDIT_STORAGE_KEY]) ? stored[AUDIT_STORAGE_KEY] : [];
+  return Array.isArray(stored[AUDIT_STORAGE_KEY])
+    ? stored[AUDIT_STORAGE_KEY].map(createAuditEntry)
+    : [];
 }
 
 export async function clearAuditEntries() {

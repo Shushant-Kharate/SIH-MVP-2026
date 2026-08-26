@@ -64,6 +64,9 @@ The current extension chunk provides:
 - native field filling with `input` and `change` event dispatch;
 - explicit approval before critical Aadhaar or PAN disclosure;
 - session-only, metadata-only per-field audit records;
+- a popup audit viewer with safe local clear controls;
+- an extension-owned review dialog that intercepts submission;
+- a one-use submission bypass that immediately rearms afterward;
 - minimal localhost-only host access;
 - no API credential or provider code in the browser bundle.
 
@@ -71,7 +74,9 @@ The popup can scan either controlled demo form and display the exact leak-checke
 eligible to leave the extension. **Plan and fill locally** sends that checked object to the planner, validates
 the returned action plan, asks before resolving critical identifiers, rescans for DOM changes, and fills
 approved values inside the page's isolated extension context. OTP, password-like, unknown, stale, missing,
-disabled, readonly and incompatible targets are rejected before execution.
+disabled, readonly and incompatible targets are rejected before execution. A filled form's next submit
+attempt is intercepted by the extension and shows only the form name, filled-field count, and critical
+category names. Cancel keeps the form editable; **Submit once** permits exactly one submission attempt.
 
 For a local demonstration:
 
@@ -80,7 +85,9 @@ For a local demonstration:
 3. Save only the fictional test profile from `tests/fixtures/fake-profile.js`.
 4. Open either page under `http://localhost:8787/demo/`.
 5. Use **Scan**, optionally inspect the exact payload, then choose **Plan and fill locally**.
-6. Approve the critical-identifier prompt and review the highlighted fields before submission.
+6. Approve the critical-identifier prompt and review the highlighted fields.
+7. Choose **View privacy audit** to inspect value-free events.
+8. Submit the form, review the extension confirmation dialog, then Cancel or **Submit once**.
 
 ## Secret handling
 

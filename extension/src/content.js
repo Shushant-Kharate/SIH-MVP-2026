@@ -1,7 +1,9 @@
 import { MESSAGE_TYPES } from "../../shared/message-types.js";
 import { ActionValidationError, validateActionPlan } from "./core/action-validator.js";
 import { executeValidatedActions } from "./core/action-executor.js";
+import { createAuditEntry } from "./core/audit-log.js";
 import { createSafeScanResult, scanDocument } from "./core/field-scanner.js";
+import { armSubmissionGuard } from "./ui/confirmation-overlay.js";
 
 let currentScan = null;
 
@@ -15,6 +17,18 @@ function failure(code, message, details = undefined) {
     data: null,
     error: { code, message, ...(details ? { details } : {}) },
   };
+}
+
+function recordDeferredAudit(entry) {
+  try {
+    const pending = chrome.runtime.sendMessage({
+      type: MESSAGE_TYPES.APPEND_AUDIT_EVENTS,
+      payload: { entries: [entry] },
+    });
+    pending?.catch?.(() => {});
+  } catch {
+    // Submission control must remain usable even if audit persistence is unavailable.
+  }
 }
 
 async function handleContentMessage(message) {
@@ -41,6 +55,21 @@ async function handleContentMessage(message) {
           availableProfileKeys: Object.keys(message.payload?.profileValues ?? {}),
           criticalApproved: message.payload?.criticalApproved === true,
         });
+        const requestFields = new Map(
+          message.payload.request.fields.map((field) => [field.fieldId, field]),
+        );
+        const criticalCategories = validated.actions
+          .filter((action) => requestFields.get(action.target)?.risk === "critical")
+          .map((action) => action.profileKey)
+          .filter(Boolean);
+        const expectedFillCount = validated.actions.filter((action) => action.action !== "focus").length;
+        const guard = armSubmissionGuard({
+          scan: freshScan,
+          actions: validated.actions,
+          filledCount: expectedFillCount,
+          criticalCategories,
+          onAudit: recordDeferredAudit,
+        });
         const result = executeValidatedActions({
           actions: validated.actions,
           scan: freshScan,
@@ -49,12 +78,20 @@ async function handleContentMessage(message) {
         currentScan = freshScan;
 
         if (!result.ok) {
+          guard.disarm();
           return failure("EXECUTION_FAILED", "A field rejected its local fill action.", {
             filledCount: result.filledCount,
             auditEntries: result.auditEntries,
           });
         }
-        return success(result);
+        result.auditEntries.push(createAuditEntry({
+          fieldId: guard.formId,
+          action: "request_confirmation",
+          status: "success",
+          durationMs: 0,
+          code: "SUBMISSION_GUARD_ARMED",
+        }));
+        return success({ ...result, submissionGuardArmed: true, guardedForm: guard.formName });
       } catch (error) {
         if (error instanceof ActionValidationError) {
           return failure(
