@@ -22,10 +22,22 @@ npm run verify:secrets
 Run the controlled demonstration forms at `http://localhost:8787/demo/`:
 
 ```bash
-npm run demo
+npm run server
 ```
 
-The backend and the extension's scanning/filling workflow are added in later implementation chunks. No API key is required for the shared-contract layer, demo forms or deterministic fallback mode.
+The same process serves the demo forms and the planner API:
+
+- `GET /api/health` reports the effective planner mode;
+- `POST /api/plan` accepts only the sanitized planning-request contract;
+- `GET /demo/*` serves the two controlled forms.
+
+Fallback planning is the default and requires no API key. It deterministically returns typed
+`fill_private` references for compatible fields and never receives or returns real profile values.
+
+For optional remote planning, copy `.env.example` to `.env`, set `PLANNER_MODE=remote`, and provide
+server-only `OPENAI_API_KEY` and `OPENAI_MODEL` values. The remote adapter uses structured JSON output,
+then revalidates the response and automatically falls back on timeout, network failure, malformed output,
+unsafe actions, or stale request identifiers. Never place these settings in extension code.
 
 ## Build the Chrome extension
 
@@ -51,8 +63,11 @@ The current extension chunk provides:
 - no API credential or provider code in the browser bundle.
 
 The popup can scan either controlled demo form and display the exact leak-checked JSON that would be
-eligible to leave the extension. Backend planning and local filling are added in later chunks.
+eligible to leave the extension. The validated planner backend is available; extension-to-backend planning
+and local field execution are added in the next implementation chunk.
 
 ## Secret handling
 
-Copy `.env.example` to `.env` only when backend configuration is required. Never commit `.env`, place an API key in extension code, or use real personal information in tests.
+Copy `.env.example` to `.env` only when remote backend configuration is required. Never commit `.env`,
+place an API key in extension code, or use real personal information in tests. Server logs are restricted
+to request ID, field count, planner type, duration, outcome, and a safe error code.

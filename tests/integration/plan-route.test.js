@@ -44,7 +44,10 @@ async function postJson(baseUrl, body, headers = {}) {
 }
 
 afterEach(async () => {
-  await Promise.all(servers.splice(0).map((server) => new Promise((resolve) => server.close(resolve))));
+  await Promise.all(servers.splice(0).map((server) => new Promise((resolve) => {
+    server.close(resolve);
+    server.closeAllConnections();
+  })));
 });
 
 describe("planner HTTP API", () => {
@@ -62,6 +65,10 @@ describe("planner HTTP API", () => {
       requestedPlanner: "fallback",
       remoteConfigured: false,
     });
+
+    const demoResponse = await fetch(`${baseUrl}/demo/scholarship.html`);
+    assert.equal(demoResponse.status, 200);
+    assert.match(await demoResponse.text(), /Scholarship Application/i);
   });
 
   it("returns valid fallback plans for both controlled forms", async () => {
@@ -83,7 +90,8 @@ describe("planner HTTP API", () => {
   });
 
   it("rejects raw profiles, malformed JSON, oversized bodies, and foreign origins safely", async () => {
-    const baseUrl = await startTestServer();
+    const logLines = [];
+    const baseUrl = await startTestServer({ logWriter: (line) => logLines.push(line) });
     const rawValue = FAKE_PROFILE[SUPPORTED_PROFILE_KEYS[0]];
     const unsafe = { ...createSanitizedPlanningRequest(), profile: FAKE_PROFILE };
     const invalidResponse = await postJson(baseUrl, unsafe);
@@ -112,6 +120,7 @@ describe("planner HTTP API", () => {
     });
     assert.equal(originResponse.status, 403);
     assert.equal((await originResponse.json()).error.code, "ORIGIN_NOT_ALLOWED");
+    assert.equal(logLines.join("\n").includes(rawValue), false);
   });
 
   it("rate limits repeated planning requests", async () => {

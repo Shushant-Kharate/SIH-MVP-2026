@@ -9,7 +9,7 @@ Never submit, click, navigate, upload, execute code, or target a field not prese
 Preserve requestId and snapshotId exactly, set planner to remote, and require confirmation.`;
 
 const ACTION_SCHEMA = {
-  oneOf: [
+  anyOf: [
     {
       type: "object",
       additionalProperties: false,
