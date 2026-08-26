@@ -3,10 +3,17 @@ import { ActionValidationError, validateActionPlan } from "./core/action-validat
 import { executeValidatedActions } from "./core/action-executor.js";
 import { createAuditEntry } from "./core/audit-log.js";
 import { createSafeScanResult, scanDocument } from "./core/field-scanner.js";
+import { isExternalPageLocation } from "./core/label-sanitizer.js";
 import { armSubmissionGuard } from "./ui/confirmation-overlay.js";
 
 let currentScan = null;
 const INSTALLATION_MARKER = "__privacyFillContentScriptV1";
+
+function scanCurrentPage() {
+  return scanDocument(document, {
+    externalPage: isExternalPageLocation(globalThis.location),
+  });
+}
 
 function success(data) {
   return { ok: true, data, error: null };
@@ -39,7 +46,7 @@ async function handleContentMessage(message) {
 
     case MESSAGE_TYPES.SCAN_FORM:
       try {
-        currentScan = scanDocument(document);
+        currentScan = scanCurrentPage();
         if (currentScan.fields.length === 0) {
           return failure("NO_SUPPORTED_FIELDS", "No supported application fields were found on this page.");
         }
@@ -51,7 +58,7 @@ async function handleContentMessage(message) {
 
     case MESSAGE_TYPES.VALIDATE_AND_EXECUTE:
       try {
-        const freshScan = scanDocument(document);
+        const freshScan = scanCurrentPage();
         const validated = validateActionPlan({
           plan: message.payload?.plan,
           request: message.payload?.request,

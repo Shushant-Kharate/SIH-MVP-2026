@@ -122,4 +122,24 @@ describe("DOM field scanner", () => {
     assert.equal(Object.hasOwn(safe, "elementByFieldId"), false);
     assert.match(safe.snapshotId, /^snapshot-v1-[a-f0-9]{8}$/);
   });
+
+  it("minimizes external labels before creating a snapshot", () => {
+    const { document } = parseHTML(`
+      <form>
+        <label>Email address private@example.test <input name="email" type="email"></label>
+        <label>Reference 9876543210 <input name="reference" type="text"></label>
+        <label>Region <select name="region"><option>Call 9876543210</option></select></label>
+      </form>
+    `);
+    const scan = scanDocument(document, { externalPage: true });
+    const safe = createSafeScanResult(scan);
+    const serialized = JSON.stringify(safe);
+
+    assert.equal(safe.privacyMode, "external");
+    assert.equal(scan.fields[0].label, "Email address");
+    assert.match(scan.fields[1].label, /\[redacted-number\]/);
+    assert.deepEqual(scan.fields[2].options, []);
+    assert.equal(serialized.includes("private@example.test"), false);
+    assert.equal(serialized.includes("9876543210"), false);
+  });
 });

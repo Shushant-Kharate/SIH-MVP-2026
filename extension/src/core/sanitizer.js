@@ -5,6 +5,7 @@ import {
   FIELD_TYPES,
 } from "../../../shared/contracts.js";
 import { isSupportedProfileKey, UNKNOWN_SENSITIVE } from "../../../shared/pii-taxonomy.js";
+import { minimizeExternalLabel, minimizeExternalOptions } from "./label-sanitizer.js";
 
 export const DEFAULT_PLANNING_TASK = "Fill this application form using my saved profile";
 
@@ -32,7 +33,7 @@ function sanitizeOptions(options) {
     .slice(0, CONTRACT_LIMITS.MAX_OPTIONS_PER_FIELD);
 }
 
-function sanitizeField(field) {
+function sanitizeField(field, { externalPage = false } = {}) {
   if (!field || typeof field !== "object") return null;
   if (field.suggestedProfileKey === UNKNOWN_SENSITIVE || field.readonly === true) return null;
 
@@ -48,9 +49,14 @@ function sanitizeField(field) {
     formId: normalizeText(field.formId, CONTRACT_LIMITS.MAX_ID_LENGTH),
     tag: normalizeText(field.tag, 20).toLowerCase(),
     type,
-    label: normalizeText(field.label, CONTRACT_LIMITS.MAX_LABEL_LENGTH),
+    label: normalizeText(
+      externalPage
+        ? minimizeExternalLabel(field.label, suggestedProfileKey)
+        : field.label,
+      CONTRACT_LIMITS.MAX_LABEL_LENGTH,
+    ),
     required: field.required === true,
-    options: sanitizeOptions(field.options),
+    options: externalPage ? minimizeExternalOptions(field.options) : sanitizeOptions(field.options),
     suggestedProfileKey,
     risk: ["low", "medium", "high", "critical"].includes(field.risk) ? field.risk : "low",
   };
@@ -73,8 +79,9 @@ export function createPlanningRequest({
       .filter(isSupportedProfileKey),
   )];
 
+  const externalPage = scanResult.privacyMode === "external";
   const fields = scanResult.fields
-    .map(sanitizeField)
+    .map((field) => sanitizeField(field, { externalPage }))
     .filter(Boolean)
     .slice(0, CONTRACT_LIMITS.MAX_FIELDS);
 

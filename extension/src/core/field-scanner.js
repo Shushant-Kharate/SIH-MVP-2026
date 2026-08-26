@@ -1,5 +1,6 @@
 import { CONTRACT_LIMITS } from "../../../shared/contracts.js";
 import { classifyFieldMetadata } from "./pii-classifier.js";
+import { minimizeExternalLabel, minimizeExternalOptions } from "./label-sanitizer.js";
 import { createSnapshotId } from "./snapshot.js";
 
 const IGNORED_INPUT_TYPES = new Set(["button", "file", "hidden", "image", "reset", "submit"]);
@@ -98,9 +99,9 @@ function formIdFor(element, formIds) {
   return formIds.get(form);
 }
 
-function buildFieldEntry(element, index, formIds, document) {
+function buildFieldEntry(element, index, formIds, document, externalPage) {
   const tag = element.tagName.toLowerCase();
-  const metadata = {
+  const rawMetadata = {
     fieldId: `FIELD_${index + 1}`,
     formId: formIdFor(element, formIds),
     tag,
@@ -115,14 +116,22 @@ function buildFieldEntry(element, index, formIds, document) {
     readonly: element.readOnly === true || element.hasAttribute("readonly"),
     options: getSafeOptions(element),
   };
+  const classification = classifyFieldMetadata(rawMetadata);
+  const metadata = externalPage
+    ? {
+        ...rawMetadata,
+        label: minimizeExternalLabel(rawMetadata.label, classification.category),
+        options: minimizeExternalOptions(rawMetadata.options),
+      }
+    : rawMetadata;
 
   return {
     ...metadata,
-    classification: classifyFieldMetadata(metadata),
+    classification,
   };
 }
 
-export function scanDocument(document) {
+export function scanDocument(document, { externalPage = false } = {}) {
   if (!document?.querySelectorAll) throw new TypeError("A DOM document is required.");
 
   const candidates = Array.from(document.querySelectorAll("input, select, textarea"))
@@ -131,12 +140,13 @@ export function scanDocument(document) {
   const formIds = new Map();
   const elementByFieldId = new Map();
   const fields = candidates.map((element, index) => {
-    const field = buildFieldEntry(element, index, formIds, document);
+    const field = buildFieldEntry(element, index, formIds, document, externalPage);
     elementByFieldId.set(field.fieldId, element);
     return field;
   });
 
   return {
+    privacyMode: externalPage ? "external" : "controlled",
     snapshotId: createSnapshotId(fields),
     fields,
     elementByFieldId,
@@ -160,6 +170,7 @@ export function createSafeScanResult(scan) {
   }));
 
   return {
+    privacyMode: scan.privacyMode === "external" ? "external" : "controlled",
     snapshotId: scan.snapshotId,
     fieldCount: fields.length,
     privateFieldCount: fields.filter((field) => field.suggestedProfileKey?.startsWith("PROFILE.")).length,
