@@ -122,4 +122,20 @@ describe("Chrome extension shell", () => {
     assert.match(popupHtml, /Required: verify exact JSON and zero matches/);
     assert.doesNotMatch(combined, /works on every (?:website|form)/i);
   });
+
+  it("gates temporary visible-screen analysis behind an explicit popup click", async () => {
+    const popupHtml = await readExtensionFile("pages/popup.html");
+    const popupScript = await readExtensionFile("src/popup.js");
+    const captureScript = await readExtensionFile("src/vision/screen-capture.js");
+    const captureStore = await readExtensionFile("src/vision/ephemeral-capture-store.js");
+
+    assert.match(popupHtml, /id="analyze-screen"/);
+    assert.match(popupHtml, /id="clear-visual-capture"/);
+    assert.match(popupHtml, /not stored, logged or sent/i);
+    assert.match(popupScript, /analyzeScreenButton\.addEventListener\("click", analyzeVisibleScreen\)/);
+    assert.match(popupScript, /visualCaptureStore\.clear\(\)/);
+    assert.match(popupScript, /addEventListener\("pagehide"/);
+    assert.match(captureScript, /captureVisibleTab\(tab\.windowId, \{ format: "png" \}\)/);
+    assert.doesNotMatch(captureStore, /chrome\.storage|localStorage|sessionStorage/);
+  });
 });

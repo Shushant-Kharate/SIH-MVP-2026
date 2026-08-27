@@ -84,6 +84,14 @@ describe("popup permission and compatibility UX", () => {
     assert.match(view.copy, /complete the form manually/i);
   });
 
+  it("reports capture failures without claiming that screenshot data escaped", () => {
+    assert.deepEqual(createSafeFailureView("SCREEN_CAPTURE_DENIED"), {
+      title: "Screen analysis stopped",
+      copy: "No screenshot was stored, logged or sent. Reload the form and try again, or continue with metadata-only scanning.",
+      recovery: "retry-or-scan",
+    });
+  });
+
   it("unlocks planning only after a zero-match privacy payload is ready", () => {
     const beforeInspection = createWorkflowAvailability({
       profileReady: true,

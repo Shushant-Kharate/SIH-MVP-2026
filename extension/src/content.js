@@ -5,6 +5,7 @@ import { createAuditEntry } from "./core/audit-log.js";
 import { createSafeScanResult, scanDocument } from "./core/field-scanner.js";
 import { isExternalPageLocation } from "./core/label-sanitizer.js";
 import { armSubmissionGuard } from "./ui/confirmation-overlay.js";
+import { createLocalVisualSnapshot } from "./vision/dom-region-mapper.js";
 
 let currentScan = null;
 const INSTALLATION_MARKER = "__privacyFillContentScriptV1";
@@ -55,6 +56,24 @@ async function handleContentMessage(message) {
       } catch {
         currentScan = null;
         return failure("SCAN_FAILED", "The form could not be scanned safely.");
+      }
+
+    case MESSAGE_TYPES.ANALYZE_SCREEN_REGIONS:
+      try {
+        const width = Number(message.payload?.screenshotSize?.width);
+        const height = Number(message.payload?.screenshotSize?.height);
+        if (!Number.isInteger(width) || !Number.isInteger(height)
+          || width < 1 || height < 1 || width > 32768 || height > 32768) {
+          return failure("SCREEN_SIZE_INVALID", "The visible-tab capture dimensions were rejected.");
+        }
+        currentScan = scanCurrentPage();
+        return success(createLocalVisualSnapshot(currentScan, {
+          windowLike: globalThis,
+          screenshotSize: { width, height },
+        }));
+      } catch {
+        currentScan = null;
+        return failure("SCREEN_REGION_MAPPING_FAILED", "Visible page regions could not be mapped safely.");
       }
 
     case MESSAGE_TYPES.VALIDATE_AND_EXECUTE:

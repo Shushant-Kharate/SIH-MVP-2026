@@ -1,6 +1,8 @@
 import { MESSAGE_TYPES } from "../../shared/message-types.js";
 import { ensureContentScript } from "./core/content-injector.js";
 import { getPageEligibility } from "./core/page-eligibility.js";
+import { EphemeralCaptureStore } from "./vision/ephemeral-capture-store.js";
+import { ScreenCaptureError, captureSelectedTab } from "./vision/screen-capture.js";
 import {
   createCompatibilityView,
   createPageAccessView,
@@ -38,6 +40,10 @@ const auditPanel = document.querySelector("#audit-panel");
 const auditSummary = document.querySelector("#audit-summary");
 const auditList = document.querySelector("#audit-list");
 const clearAuditButton = document.querySelector("#clear-audit");
+const analyzeScreenButton = document.querySelector("#analyze-screen");
+const visualCapturePanel = document.querySelector("#visual-capture-panel");
+const visualCaptureSummary = document.querySelector("#visual-capture-summary");
+const clearVisualCaptureButton = document.querySelector("#clear-visual-capture");
 
 let latestScanResult = null;
 let latestScanTab = null;
@@ -46,6 +52,19 @@ let pageScanEnabled = false;
 let scanInProgress = false;
 let latestScanCanInspect = false;
 let payloadReady = false;
+let captureInProgress = false;
+let latestVisualTab = null;
+let visualCaptureGeneration = 0;
+
+const visualCaptureStore = new EphemeralCaptureStore({
+  onExpire() {
+    visualCaptureGeneration += 1;
+    latestVisualTab = null;
+    visualCapturePanel.hidden = true;
+    renderScanResult("Visible-screen capture expired and was cleared from memory.", "neutral");
+    updateWorkflowButtons();
+  },
+});
 
 async function sendMessage(type, payload = undefined) {
   if (!globalThis.chrome?.runtime?.sendMessage) {
@@ -109,11 +128,12 @@ function updateWorkflowButtons() {
     scanAvailable: latestScanResult !== null,
     scanCanInspect: latestScanCanInspect,
     payloadReady,
-    scanInProgress,
+    scanInProgress: scanInProgress || captureInProgress,
   });
   scanButton.disabled = !availability.canScan;
   inspectPayloadButton.disabled = !availability.canInspect;
   planFillButton.disabled = !availability.canPlanAndFill;
+  analyzeScreenButton.disabled = captureInProgress || scanInProgress || !pageScanEnabled;
 }
 
 function renderPageAccess(view) {
@@ -181,6 +201,24 @@ function clearLatestScan() {
   updateWorkflowButtons();
 }
 
+function clearVisualCapture({ announce = false } = {}) {
+  const hadCapture = visualCaptureStore.hasCapture() || latestVisualTab !== null;
+  visualCaptureGeneration += 1;
+  visualCaptureStore.clear();
+  latestVisualTab = null;
+  visualCapturePanel.hidden = true;
+  if (announce && hadCapture) {
+    renderScanResult("Visible-screen capture cancelled and cleared from memory.", "neutral");
+  }
+  updateWorkflowButtons();
+}
+
+function tabStillMatches(expected, actual) {
+  return expected?.id === actual?.id
+    && expected?.windowId === actual?.windowId
+    && expected?.url === actual?.url;
+}
+
 async function scanStillMatchesActiveTab() {
   if (!latestScanResult || !latestScanTab) return false;
   const tab = await getActiveTab();
@@ -191,11 +229,96 @@ async function scanStillMatchesActiveTab() {
 
 async function handlePageContextChange() {
   const hadScan = latestScanResult !== null;
+  const hadCapture = visualCaptureStore.hasCapture() || latestVisualTab !== null || captureInProgress;
   if (hadScan) {
     clearLatestScan();
-    renderSafeFailure("PAGE_NAVIGATED", "", "warning");
   }
+  if (hadCapture) clearVisualCapture();
+  if (hadScan || hadCapture) renderSafeFailure("PAGE_NAVIGATED", "", "warning");
   await refreshPageAccessStatus();
+}
+
+async function analyzeVisibleScreen() {
+  if (
+    !globalThis.chrome?.tabs?.query
+    || !globalThis.chrome?.tabs?.sendMessage
+    || !globalThis.chrome?.tabs?.captureVisibleTab
+    || !globalThis.chrome?.scripting?.executeScript
+  ) {
+    renderSafeFailure(
+      "EXTENSION_API_UNAVAILABLE",
+      "Open the popup from the installed Chrome extension on a normal webpage.",
+    );
+    return;
+  }
+
+  captureInProgress = true;
+  clearVisualCapture();
+  const generation = visualCaptureGeneration;
+  updateWorkflowButtons();
+  renderScanResult("Capturing only the visible area of the selected tab in memory…", "neutral");
+
+  let capture = null;
+  try {
+    const tab = await getActiveTab();
+    latestVisualTab = { id: tab.id, windowId: tab.windowId, url: tab.url };
+    await ensureContentScript({ tab });
+    if (generation !== visualCaptureGeneration) {
+      throw new ScreenCaptureError("SCREEN_CAPTURE_CANCELLED", "Screen analysis was cancelled.");
+    }
+
+    const beforeCaptureTab = await getActiveTab();
+    if (!tabStillMatches(tab, beforeCaptureTab)) {
+      throw new ScreenCaptureError("PAGE_NAVIGATED", "The selected page changed before screen analysis.");
+    }
+    capture = await captureSelectedTab({ tab });
+    if (generation !== visualCaptureGeneration) {
+      throw new ScreenCaptureError("SCREEN_CAPTURE_CANCELLED", "Screen analysis was cancelled.");
+    }
+
+    const afterCaptureTab = await getActiveTab();
+    if (!tabStillMatches(tab, afterCaptureTab)) {
+      throw new ScreenCaptureError("PAGE_NAVIGATED", "The selected page changed during screen analysis.");
+    }
+
+    const response = await chrome.tabs.sendMessage(tab.id, {
+      type: MESSAGE_TYPES.ANALYZE_SCREEN_REGIONS,
+      payload: { screenshotSize: { width: capture.width, height: capture.height } },
+    });
+    if (!response?.ok) {
+      throw new ScreenCaptureError(
+        response?.error?.code ?? "SCREEN_REGION_MAPPING_FAILED",
+        response?.error?.message ?? "Visible form regions could not be mapped.",
+      );
+    }
+
+    const afterMappingTab = await getActiveTab();
+    if (generation !== visualCaptureGeneration || !tabStillMatches(tab, afterMappingTab)) {
+      throw new ScreenCaptureError("PAGE_NAVIGATED", "The selected page changed during screen analysis.");
+    }
+
+    const metadata = visualCaptureStore.replace({
+      ...capture,
+      visualSnapshot: response.data,
+    });
+    capture.originalDataUrl = null;
+    capture = null;
+    latestVisualTab = { id: tab.id, windowId: tab.windowId, url: tab.url };
+    const regionCount = response.data?.regions?.length ?? 0;
+    visualCaptureSummary.textContent = `${metadata.width}×${metadata.height} PNG · ${regionCount} visible field ${regionCount === 1 ? "region" : "regions"} · expires in 60 seconds.`;
+    visualCapturePanel.hidden = false;
+    renderScanResult(
+      "Visible screen analyzed locally. The original remains only in temporary memory and cannot enter planning until a later redaction stage consumes it.",
+      "success",
+    );
+  } catch (error) {
+    if (capture) capture.originalDataUrl = null;
+    clearVisualCapture();
+    renderSafeFailure(error?.code, error?.message ?? "Visible-screen analysis was stopped safely.");
+  } finally {
+    captureInProgress = false;
+    updateWorkflowButtons();
+  }
 }
 
 function renderAudit(entries) {
@@ -452,13 +575,15 @@ clearAuditButton.addEventListener("click", async () => {
 });
 
 scanButton.addEventListener("click", scanActiveTab);
+analyzeScreenButton.addEventListener("click", analyzeVisibleScreen);
+clearVisualCaptureButton.addEventListener("click", () => clearVisualCapture({ announce: true }));
 inspectPayloadButton.addEventListener("click", inspectSafePayload);
 planFillButton.addEventListener("click", planAndFill);
 viewAuditButton.addEventListener("click", toggleAudit);
 
 if (globalThis.chrome?.tabs?.onUpdated?.addListener) {
   chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
-    const trackedTabChanged = latestScanTab?.id === tabId
+    const trackedTabChanged = (latestScanTab?.id === tabId || latestVisualTab?.id === tabId)
       && (typeof changeInfo?.url === "string" || changeInfo?.status === "loading");
     if (trackedTabChanged) void handlePageContextChange();
   });
@@ -466,10 +591,18 @@ if (globalThis.chrome?.tabs?.onUpdated?.addListener) {
 
 if (globalThis.chrome?.tabs?.onActivated?.addListener) {
   chrome.tabs.onActivated.addListener(({ tabId }) => {
-    if (latestScanTab && latestScanTab.id !== tabId) void handlePageContextChange();
+    if (
+      (latestScanTab && latestScanTab.id !== tabId)
+      || (latestVisualTab && latestVisualTab.id !== tabId)
+    ) void handlePageContextChange();
     else void refreshPageAccessStatus();
   });
 }
+
+globalThis.addEventListener("pagehide", () => {
+  visualCaptureGeneration += 1;
+  visualCaptureStore.clear();
+}, { once: true });
 
 await Promise.all([
   refreshProfileStatus(),

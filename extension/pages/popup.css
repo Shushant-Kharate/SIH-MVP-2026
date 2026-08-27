@@ -155,6 +155,62 @@ body {
   margin-top: 14px;
 }
 
+.visual-workflow {
+  margin-top: 14px;
+}
+
+.action-card--visual {
+  border-color: #b8c7f5;
+  background: linear-gradient(135deg, #f6f8ff, #eef3ff);
+}
+
+.visual-capture-panel {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px 12px;
+  margin-top: 10px;
+  border: 1px solid #b8c7f5;
+  border-radius: 13px;
+  padding: 11px 12px;
+  background: #f4f7ff;
+}
+
+.visual-capture-panel strong,
+.visual-capture-panel span {
+  display: block;
+}
+
+.visual-capture-panel strong {
+  font-size: 0.72rem;
+}
+
+.visual-capture-panel span,
+.visual-capture-panel p {
+  color: var(--muted);
+  font-size: 0.64rem;
+  line-height: 1.4;
+}
+
+.visual-capture-panel span {
+  margin-top: 3px;
+}
+
+.visual-capture-panel p {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
+.visual-capture-panel button {
+  align-self: start;
+  border: 0;
+  border-radius: 8px;
+  padding: 6px 8px;
+  color: var(--danger);
+  background: var(--danger-bg);
+  font-size: 0.61rem;
+  font-weight: 780;
+}
+
 .action-card {
   width: 100%;
   display: grid;

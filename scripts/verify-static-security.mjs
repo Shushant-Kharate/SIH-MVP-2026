@@ -79,9 +79,9 @@ const codePatterns = [
   { rule: "full-page HTML collection", pattern: /document\.documentElement\.(?:innerHTML|outerHTML)/ },
   { rule: "browser history access", pattern: /chrome\.history\b/ },
   { rule: "browser cookie access", pattern: /chrome\.cookies\b/ },
-  { rule: "tab screenshot capture", pattern: /captureVisibleTab\s*\(/ },
   { rule: "Chrome debugger access", pattern: /chrome\.debugger\b/ },
 ];
+const screenshotPattern = /captureVisibleTab\s*\(/;
 const providerPatterns = [
   { rule: "OpenAI credential variable in extension", pattern: /OPENAI_API_KEY/ },
   { rule: "provider endpoint in extension", pattern: /api\.openai\.com/ },
@@ -92,6 +92,13 @@ for (const directory of [extensionSource, extensionBuild]) {
   for (const file of await listFiles(directory)) {
     if (!/\.(?:js|json|html|css)$/i.test(file)) continue;
     const contents = await readFile(file, "utf8");
+    const relativeFile = path.relative(directory, file).replaceAll("\\", "/");
+    const screenshotAllowed = directory === extensionSource
+      ? relativeFile === "src/vision/screen-capture.js"
+      : relativeFile === "pages/popup.js";
+    if (screenshotPattern.test(contents) && !screenshotAllowed) {
+      addFinding(file, "tab screenshot capture outside the explicit popup workflow");
+    }
     for (const { rule, pattern } of codePatterns) {
       if (pattern.test(contents)) addFinding(file, rule);
     }
@@ -99,6 +106,16 @@ for (const directory of [extensionSource, extensionBuild]) {
       if (pattern.test(contents)) addFinding(file, rule);
     }
   }
+}
+
+const screenCapturePath = path.join(extensionSource, "src", "vision", "screen-capture.js");
+const screenCaptureSource = await readFile(screenCapturePath, "utf8");
+if (!/tabsApi\.captureVisibleTab\(tab\.windowId,\s*\{\s*format:\s*["']png["']\s*\}\)/.test(screenCaptureSource)) {
+  addFinding(screenCapturePath, "visible-tab capture is not restricted to the selected window and PNG format");
+}
+const popupSource = await readFile(path.join(extensionSource, "src", "popup.js"), "utf8");
+if (!/analyzeScreenButton\.addEventListener\(["']click["'],\s*analyzeVisibleScreen\)/.test(popupSource)) {
+  addFinding(path.join(extensionSource, "src", "popup.js"), "visible-tab capture lacks an explicit popup click action");
 }
 
 if (findings.length > 0) {

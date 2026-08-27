@@ -42,6 +42,26 @@
       </div>
     </section>
 
+    <section class="visual-workflow" aria-label="Local visual analysis">
+      <button class="action-card action-card--button action-card--visual" id="analyze-screen" type="button" disabled>
+        <span class="step-number">V1</span>
+        <div>
+          <h2>Analyze visible screen</h2>
+          <p>Capture this tab only after your click.</p>
+        </div>
+        <span class="run-action">Analyze</span>
+      </button>
+    </section>
+
+    <section class="visual-capture-panel" id="visual-capture-panel" aria-live="polite" hidden>
+      <div>
+        <strong>Original held in memory only</strong>
+        <span id="visual-capture-summary">No visible-tab capture.</span>
+      </div>
+      <button id="clear-visual-capture" type="button">Cancel capture</button>
+      <p>Not stored, logged or sent. It expires automatically and will be consumed by the local redactor.</p>
+    </section>
+
     <section class="workflow" aria-label="Private form-filling workflow">
       <button class="action-card action-card--button" id="scan-form" type="button">
         <span class="step-number">01</span>

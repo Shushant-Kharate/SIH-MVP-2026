@@ -129,6 +129,14 @@ export function createSafeFailureView(code, fallbackMessage = "") {
     });
   }
 
+  if (typeof code === "string" && code.startsWith("SCREEN_")) {
+    return Object.freeze({
+      title: "Screen analysis stopped",
+      copy: "No screenshot was stored, logged or sent. Reload the form and try again, or continue with metadata-only scanning.",
+      recovery: "retry-or-scan",
+    });
+  }
+
   const safeFallback = typeof fallbackMessage === "string" && fallbackMessage.trim().length > 0
     ? fallbackMessage.trim()
     : "PrivacyFill could not complete this step safely.";
