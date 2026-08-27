@@ -12,6 +12,7 @@ const requiredDocuments = [
   "THREAT_MODEL.md",
   "DEMO_SCRIPT.md",
   "TEST_MATRIX.md",
+  "VISUAL_BROWSER_AGENT_IMPLEMENTATION_PLAN.md",
   "demo-evidence/README.md",
   "tests/manual/acceptance-checklist.md",
   "tests/manual/external-page-checklist.md",

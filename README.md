@@ -2,7 +2,9 @@
 
 PrivacyFill AI is a privacy-preserving Chrome form-filling agent. An AI or deterministic planner receives only anonymous field metadata and typed profile references; real profile values stay inside the trusted browser extension and are resolved locally.
 
-The project is being implemented incrementally according to [IMPLEMENTATION_PLAN.md](./IMPLEMENTATION_PLAN.md).
+The core MVP was implemented incrementally according to [IMPLEMENTATION_PLAN.md](./IMPLEMENTATION_PLAN.md).
+The visual browser-agent extension is divided into ten guarded sections in
+[VISUAL_BROWSER_AGENT_IMPLEMENTATION_PLAN.md](./VISUAL_BROWSER_AGENT_IMPLEMENTATION_PLAN.md).
 
 ## Architecture at a glance
 
@@ -185,3 +187,5 @@ Start with this README, then read these documents in order:
 4. [TEST_MATRIX.md](./TEST_MATRIX.md) — claim-to-test traceability and evidence locations.
 5. [Controlled acceptance checklist](./tests/manual/acceptance-checklist.md) — localhost Chrome gate.
 6. [External-page checklist](./tests/manual/external-page-checklist.md) — selected-tab and Google Forms gate.
+7. [Visual browser-agent plan](./VISUAL_BROWSER_AGENT_IMPLEMENTATION_PLAN.md) — screenshot, redaction,
+   local vision and bounded-agent implementation sequence.
