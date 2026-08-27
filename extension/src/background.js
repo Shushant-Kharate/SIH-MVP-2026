@@ -1,4 +1,5 @@
 import { MESSAGE_TYPES } from "../../shared/message-types.js";
+import { assertVisualInspectorPreview } from "../../shared/visual-inspector-contract.js";
 import {
   assertValidPlanningRequest,
   assertValidPlanningResponse,
@@ -18,11 +19,14 @@ import {
 } from "./core/profile-store.js";
 import { assertNoProfileLeak, ProfileLeakError } from "./core/leak-checker.js";
 import { PlannerClientError, requestPlannerPlan } from "./core/planner-client.js";
+import { VisualSessionBroker } from "./vision/visual-session-broker.js";
 import {
   createPlanningRequest,
   createRequestId,
   DEFAULT_PLANNING_TASK,
 } from "./core/sanitizer.js";
+
+const visualSessionBroker = new VisualSessionBroker();
 
 function success(data) {
   return { ok: true, data, error: null };
@@ -70,12 +74,64 @@ async function getActiveTab() {
   return tab;
 }
 
-async function handleMessage(message) {
+function isTrustedExtensionPage(sender, pageName) {
+  const expected = chrome.runtime.getURL(`pages/${pageName}`);
+  return typeof sender?.url === "string" && sender.url.startsWith(expected);
+}
+
+async function handleMessage(message, sender) {
   if (!message || typeof message !== "object") {
     return failure("INVALID_MESSAGE", "The extension received an invalid message.");
   }
 
   switch (message.type) {
+    case MESSAGE_TYPES.VISUAL_SESSION_CREATE:
+      try {
+        if (!isTrustedExtensionPage(sender, "popup.html")) {
+          return failure("VISUAL_SESSION_FORBIDDEN", "The visual handoff request was rejected.");
+        }
+        return success(visualSessionBroker.create(message.payload?.session));
+      } catch {
+        visualSessionBroker.clear();
+        return failure("VISUAL_SESSION_INVALID", "The temporary visual session was rejected.");
+      }
+
+    case MESSAGE_TYPES.VISUAL_SESSION_TAKE:
+      if (!isTrustedExtensionPage(sender, "inspector.html")) {
+        return failure("VISUAL_SESSION_FORBIDDEN", "The visual handoff request was rejected.");
+      }
+      {
+        const session = visualSessionBroker.take(message.payload?.sessionId);
+        return session
+          ? success(session)
+          : failure("VISUAL_SESSION_EXPIRED", "The temporary visual session is unavailable or expired.");
+      }
+
+    case MESSAGE_TYPES.VISUAL_SESSION_CANCEL:
+      if (!isTrustedExtensionPage(sender, "popup.html")
+        && !isTrustedExtensionPage(sender, "inspector.html")) {
+        return failure("VISUAL_SESSION_FORBIDDEN", "The visual cancellation request was rejected.");
+      }
+      visualSessionBroker.clear(message.payload?.sessionId);
+      return success({ cleared: true });
+
+    case MESSAGE_TYPES.VISUAL_PRIVACY_CHECK:
+      try {
+        if (!isTrustedExtensionPage(sender, "inspector.html")) {
+          return failure("VISUAL_SESSION_FORBIDDEN", "The visual privacy check was rejected.");
+        }
+        const profile = await getSessionProfile();
+        if (!profile) return failure("PROFILE_MISSING", "Create a session profile before visual approval.");
+        const safePreview = assertVisualInspectorPreview(message.payload?.safePreview);
+        const privacyCheck = assertNoProfileLeak(safePreview, profile.values);
+        return success({ privacyCheck: privacySummary(privacyCheck) });
+      } catch (error) {
+        if (error instanceof ProfileLeakError) {
+          return failure("PRIVACY_LEAK_BLOCKED", "Visual approval was blocked by the profile leak checker.");
+        }
+        return failure("VISUAL_PRIVACY_CHECK_FAILED", "The local visual privacy check failed.");
+      }
+
     case MESSAGE_TYPES.PROFILE_SAVE:
       try {
         return success(await saveSessionProfile(message.payload?.values));
@@ -259,7 +315,7 @@ chrome.runtime.onInstalled.addListener(() => {
   restrictSessionStorageAccess().catch(() => {});
 });
 
-chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-  handleMessage(message).then(sendResponse);
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  handleMessage(message, sender).then(sendResponse);
   return true;
 });

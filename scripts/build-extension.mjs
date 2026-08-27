@@ -67,6 +67,7 @@ await build({
     background: path.join(sourceRoot, "src", "background.js"),
     "pages/popup": path.join(sourceRoot, "src", "popup.js"),
     "pages/profile": path.join(sourceRoot, "src", "profile.js"),
+    "pages/inspector": path.join(sourceRoot, "src", "inspector.js"),
   },
   bundle: true,
   entryNames: "[dir]/[name]",

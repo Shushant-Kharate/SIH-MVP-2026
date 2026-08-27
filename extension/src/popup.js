@@ -3,7 +3,6 @@ import { ensureContentScript } from "./core/content-injector.js";
 import { getPageEligibility } from "./core/page-eligibility.js";
 import { redactCapture } from "./privacy/visual-redactor.js";
 import { EphemeralCaptureStore } from "./vision/ephemeral-capture-store.js";
-import { EphemeralRedactionStore } from "./vision/ephemeral-redaction-store.js";
 import { ScreenCaptureError, captureSelectedTab } from "./vision/screen-capture.js";
 import {
   createCompatibilityView,
@@ -57,6 +56,7 @@ let payloadReady = false;
 let captureInProgress = false;
 let latestVisualTab = null;
 let visualCaptureGeneration = 0;
+let latestVisualSessionId = null;
 
 const visualCaptureStore = new EphemeralCaptureStore({
   onExpire() {
@@ -64,15 +64,6 @@ const visualCaptureStore = new EphemeralCaptureStore({
     latestVisualTab = null;
     visualCapturePanel.hidden = true;
     renderScanResult("Visible-screen capture expired and was cleared from memory.", "neutral");
-    updateWorkflowButtons();
-  },
-});
-const visualRedactionStore = new EphemeralRedactionStore({
-  onExpire() {
-    visualCaptureGeneration += 1;
-    latestVisualTab = null;
-    visualCapturePanel.hidden = true;
-    renderScanResult("Sanitized visual context expired and was cleared from memory.", "neutral");
     updateWorkflowButtons();
   },
 });
@@ -214,11 +205,14 @@ function clearLatestScan() {
 
 function clearVisualCapture({ announce = false } = {}) {
   const hadCapture = visualCaptureStore.hasCapture()
-    || visualRedactionStore.hasResult()
+    || latestVisualSessionId !== null
     || latestVisualTab !== null;
   visualCaptureGeneration += 1;
   visualCaptureStore.clear();
-  visualRedactionStore.clear();
+  if (latestVisualSessionId) {
+    void sendMessage(MESSAGE_TYPES.VISUAL_SESSION_CANCEL, { sessionId: latestVisualSessionId });
+  }
+  latestVisualSessionId = null;
   latestVisualTab = null;
   visualCapturePanel.hidden = true;
   if (announce && hadCapture) {
@@ -244,7 +238,7 @@ async function scanStillMatchesActiveTab() {
 async function handlePageContextChange() {
   const hadScan = latestScanResult !== null;
   const hadCapture = visualCaptureStore.hasCapture()
-    || visualRedactionStore.hasResult()
+    || latestVisualSessionId !== null
     || latestVisualTab !== null
     || captureInProgress;
   if (hadScan) {
@@ -327,24 +321,49 @@ async function analyzeVisibleScreen() {
     let redaction;
     try {
       redaction = await redactCapture(originalSession);
+      const afterRedactionTab = await getActiveTab();
+      if (generation !== visualCaptureGeneration || !tabStillMatches(tab, afterRedactionTab)) {
+        throw new ScreenCaptureError("PAGE_NAVIGATED", "The selected page changed during local redaction.");
+      }
+      const handoff = await sendMessage(MESSAGE_TYPES.VISUAL_SESSION_CREATE, {
+        session: {
+          originalDataUrl: originalSession.originalDataUrl,
+          width: originalSession.width,
+          height: originalSession.height,
+          tabId: tab.id,
+          windowId: tab.windowId,
+          pageToken: String(tab.url),
+          visualSnapshot: response.data,
+          redaction,
+        },
+      });
+      if (!handoff?.ok) {
+        throw new ScreenCaptureError(
+          handoff?.error?.code ?? "VISUAL_SESSION_INVALID",
+          handoff?.error?.message ?? "The private inspector handoff failed.",
+        );
+      }
+      latestVisualSessionId = handoff.data.sessionId;
+      const handedOffSessionId = latestVisualSessionId;
+      const inspectorUrl = chrome.runtime.getURL(`pages/inspector.html#${encodeURIComponent(handedOffSessionId)}`);
+      if (!globalThis.chrome?.tabs?.create) {
+        throw new ScreenCaptureError("INSPECTOR_UNAVAILABLE", "The Privacy Inspector could not be opened.");
+      }
+      latestVisualSessionId = null;
+      try {
+        await chrome.tabs.create({ url: inspectorUrl, active: true });
+      } catch {
+        await sendMessage(MESSAGE_TYPES.VISUAL_SESSION_CANCEL, { sessionId: handedOffSessionId });
+        throw new ScreenCaptureError("INSPECTOR_UNAVAILABLE", "The Privacy Inspector could not be opened.");
+      }
+      const regionCount = response.data?.regions?.length ?? 0;
+      visualCaptureSummary.textContent = `${redaction.width}×${redaction.height} sanitized PNG · ${redaction.coverage.coveredCount}/${redaction.coverage.requiredCount} sensitive regions covered · ${regionCount} visible field ${regionCount === 1 ? "region" : "regions"}.`;
+      visualCapturePanel.hidden = false;
+      renderScanResult("Privacy Inspector opened with a one-time memory-only visual session.", "success");
     } finally {
       originalSession.originalDataUrl = null;
-    }
-    const afterRedactionTab = await getActiveTab();
-    if (generation !== visualCaptureGeneration || !tabStillMatches(tab, afterRedactionTab)) {
       redaction = null;
-      throw new ScreenCaptureError("PAGE_NAVIGATED", "The selected page changed during local redaction.");
     }
-    const redactionMetadata = visualRedactionStore.replace(redaction);
-    redaction = null;
-    latestVisualTab = { id: tab.id, windowId: tab.windowId, url: tab.url };
-    const regionCount = response.data?.regions?.length ?? 0;
-    visualCaptureSummary.textContent = `${redactionMetadata.width}×${redactionMetadata.height} sanitized PNG · ${redactionMetadata.coveredCount}/${redactionMetadata.requiredCount} sensitive regions covered · ${regionCount} visible field ${regionCount === 1 ? "region" : "regions"}.`;
-    visualCapturePanel.hidden = false;
-    renderScanResult(
-      "Local redaction passed its coverage check. The original was discarded; the sanitized result remains temporary and is not available to the planner.",
-      "success",
-    );
   } catch (error) {
     if (capture) capture.originalDataUrl = null;
     clearVisualCapture();
@@ -636,7 +655,9 @@ if (globalThis.chrome?.tabs?.onActivated?.addListener) {
 globalThis.addEventListener("pagehide", () => {
   visualCaptureGeneration += 1;
   visualCaptureStore.clear();
-  visualRedactionStore.clear();
+  if (latestVisualSessionId) {
+    void sendMessage(MESSAGE_TYPES.VISUAL_SESSION_CANCEL, { sessionId: latestVisualSessionId });
+  }
 }, { once: true });
 
 await Promise.all([

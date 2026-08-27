@@ -121,15 +121,19 @@ if (!/analyzeScreenButton\.addEventListener\(["']click["'],\s*analyzeVisibleScre
 const visualArtifactAllowlist = new Map([
   ["originalDataUrl", new Set([
     "src/popup.js",
+    "src/inspector.js",
     "src/privacy/visual-redactor.js",
     "src/vision/ephemeral-capture-store.js",
     "src/vision/ephemeral-redaction-store.js",
     "src/vision/screen-capture.js",
+    "src/vision/visual-session-broker.js",
   ])],
   ["sanitizedDataUrl", new Set([
     "src/popup.js",
+    "src/inspector.js",
     "src/privacy/visual-redactor.js",
     "src/vision/ephemeral-redaction-store.js",
+    "src/vision/visual-session-broker.js",
   ])],
 ]);
 for (const file of await listFiles(extensionSource)) {

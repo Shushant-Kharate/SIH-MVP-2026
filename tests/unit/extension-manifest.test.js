@@ -145,4 +145,28 @@ describe("Chrome extension shell", () => {
     assert.match(redactorScript, /verifyVisualCoverage/);
     assert.doesNotMatch(`${redactorScript}\n${coverageScript}`, /chrome\.storage|localStorage|sessionStorage/);
   });
+
+  it("provides a dedicated one-time Privacy Inspector with local approval gates", async () => {
+    const inspectorHtml = await readExtensionFile("pages/inspector.html");
+    const inspectorScript = await readExtensionFile("src/inspector.js");
+    const backgroundScript = await readExtensionFile("src/background.js");
+
+    for (const id of [
+      "original-preview",
+      "sanitized-preview",
+      "coverage-status",
+      "profile-status",
+      "safe-preview-json",
+      "manual-mask-mode",
+      "approve-review",
+      "cancel-review",
+    ]) assert.match(inspectorHtml, new RegExp(`id="${id}"`));
+    assert.match(inspectorScript, /MESSAGE_TYPES\.VISUAL_SESSION_TAKE/);
+    assert.match(inspectorScript, /MESSAGE_TYPES\.VISUAL_PRIVACY_CHECK/);
+    assert.match(inspectorScript, /await redactCapture/);
+    assert.match(inspectorScript, /addEventListener\("pointerdown"/);
+    assert.match(inspectorScript, /session\.originalDataUrl = null/);
+    assert.match(backgroundScript, /isTrustedExtensionPage/);
+    assert.doesNotMatch(inspectorScript, /innerHTML|chrome\.storage|fetch\(\s*["']https?:/);
+  });
 });
