@@ -129,10 +129,15 @@ export function createSafeFailureView(code, fallbackMessage = "") {
     });
   }
 
-  if (typeof code === "string" && code.startsWith("SCREEN_")) {
+  if (typeof code === "string" && (
+    code.startsWith("SCREEN_")
+    || code.startsWith("VISUAL_")
+    || code.startsWith("SANITIZED_")
+    || code === "ORIGINAL_CAPTURE_MISSING"
+  )) {
     return Object.freeze({
       title: "Screen analysis stopped",
-      copy: "No screenshot was stored, logged or sent. Reload the form and try again, or continue with metadata-only scanning.",
+      copy: "No screenshot was stored, logged or sent, and any candidate result was discarded. Reload the form and try again, or continue with metadata-only scanning.",
       recovery: "retry-or-scan",
     });
   }

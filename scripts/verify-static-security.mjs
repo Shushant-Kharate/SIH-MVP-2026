@@ -118,6 +118,37 @@ if (!/analyzeScreenButton\.addEventListener\(["']click["'],\s*analyzeVisibleScre
   addFinding(path.join(extensionSource, "src", "popup.js"), "visible-tab capture lacks an explicit popup click action");
 }
 
+const visualArtifactAllowlist = new Map([
+  ["originalDataUrl", new Set([
+    "src/popup.js",
+    "src/privacy/visual-redactor.js",
+    "src/vision/ephemeral-capture-store.js",
+    "src/vision/ephemeral-redaction-store.js",
+    "src/vision/screen-capture.js",
+  ])],
+  ["sanitizedDataUrl", new Set([
+    "src/popup.js",
+    "src/privacy/visual-redactor.js",
+    "src/vision/ephemeral-redaction-store.js",
+  ])],
+]);
+for (const file of await listFiles(extensionSource)) {
+  if (!file.endsWith(".js")) continue;
+  const relativeFile = path.relative(extensionSource, file).replaceAll("\\", "/");
+  const contents = await readFile(file, "utf8");
+  for (const [artifact, allowedFiles] of visualArtifactAllowlist) {
+    if (contents.includes(artifact) && !allowedFiles.has(relativeFile)) {
+      addFinding(file, `${artifact} escaped the local visual lifecycle`);
+    }
+  }
+}
+const visualRedactorPath = path.join(extensionSource, "src", "privacy", "visual-redactor.js");
+const visualRedactorSource = await readFile(visualRedactorPath, "utf8");
+if (!/verifyVisualCoverage\s*\(/.test(visualRedactorSource)
+  || !/VISUAL_COVERAGE_FAILED/.test(visualRedactorSource)) {
+  addFinding(visualRedactorPath, "sanitized output is not coverage-gated");
+}
+
 if (findings.length > 0) {
   console.error("Static security verification failed:");
   for (const finding of findings) console.error(`- ${finding.file}: ${finding.rule}`);

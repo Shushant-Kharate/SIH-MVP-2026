@@ -128,6 +128,8 @@ describe("Chrome extension shell", () => {
     const popupScript = await readExtensionFile("src/popup.js");
     const captureScript = await readExtensionFile("src/vision/screen-capture.js");
     const captureStore = await readExtensionFile("src/vision/ephemeral-capture-store.js");
+    const redactorScript = await readExtensionFile("src/privacy/visual-redactor.js");
+    const coverageScript = await readExtensionFile("src/privacy/visual-coverage-checker.js");
 
     assert.match(popupHtml, /id="analyze-screen"/);
     assert.match(popupHtml, /id="clear-visual-capture"/);
@@ -137,5 +139,10 @@ describe("Chrome extension shell", () => {
     assert.match(popupScript, /addEventListener\("pagehide"/);
     assert.match(captureScript, /captureVisibleTab\(tab\.windowId, \{ format: "png" \}\)/);
     assert.doesNotMatch(captureStore, /chrome\.storage|localStorage|sessionStorage/);
+    assert.match(popupScript, /await redactCapture\(originalSession\)/);
+    assert.match(popupScript, /originalSession\.originalDataUrl = null/);
+    assert.match(redactorScript, /document\.createElement\("canvas"\)/);
+    assert.match(redactorScript, /verifyVisualCoverage/);
+    assert.doesNotMatch(`${redactorScript}\n${coverageScript}`, /chrome\.storage|localStorage|sessionStorage/);
   });
 });

@@ -1,7 +1,9 @@
 import { MESSAGE_TYPES } from "../../shared/message-types.js";
 import { ensureContentScript } from "./core/content-injector.js";
 import { getPageEligibility } from "./core/page-eligibility.js";
+import { redactCapture } from "./privacy/visual-redactor.js";
 import { EphemeralCaptureStore } from "./vision/ephemeral-capture-store.js";
+import { EphemeralRedactionStore } from "./vision/ephemeral-redaction-store.js";
 import { ScreenCaptureError, captureSelectedTab } from "./vision/screen-capture.js";
 import {
   createCompatibilityView,
@@ -62,6 +64,15 @@ const visualCaptureStore = new EphemeralCaptureStore({
     latestVisualTab = null;
     visualCapturePanel.hidden = true;
     renderScanResult("Visible-screen capture expired and was cleared from memory.", "neutral");
+    updateWorkflowButtons();
+  },
+});
+const visualRedactionStore = new EphemeralRedactionStore({
+  onExpire() {
+    visualCaptureGeneration += 1;
+    latestVisualTab = null;
+    visualCapturePanel.hidden = true;
+    renderScanResult("Sanitized visual context expired and was cleared from memory.", "neutral");
     updateWorkflowButtons();
   },
 });
@@ -202,9 +213,12 @@ function clearLatestScan() {
 }
 
 function clearVisualCapture({ announce = false } = {}) {
-  const hadCapture = visualCaptureStore.hasCapture() || latestVisualTab !== null;
+  const hadCapture = visualCaptureStore.hasCapture()
+    || visualRedactionStore.hasResult()
+    || latestVisualTab !== null;
   visualCaptureGeneration += 1;
   visualCaptureStore.clear();
+  visualRedactionStore.clear();
   latestVisualTab = null;
   visualCapturePanel.hidden = true;
   if (announce && hadCapture) {
@@ -229,7 +243,10 @@ async function scanStillMatchesActiveTab() {
 
 async function handlePageContextChange() {
   const hadScan = latestScanResult !== null;
-  const hadCapture = visualCaptureStore.hasCapture() || latestVisualTab !== null || captureInProgress;
+  const hadCapture = visualCaptureStore.hasCapture()
+    || visualRedactionStore.hasResult()
+    || latestVisualTab !== null
+    || captureInProgress;
   if (hadScan) {
     clearLatestScan();
   }
@@ -297,18 +314,35 @@ async function analyzeVisibleScreen() {
       throw new ScreenCaptureError("PAGE_NAVIGATED", "The selected page changed during screen analysis.");
     }
 
-    const metadata = visualCaptureStore.replace({
+    const captureMetadata = visualCaptureStore.replace({
       ...capture,
       visualSnapshot: response.data,
     });
     capture.originalDataUrl = null;
     capture = null;
+    const originalSession = visualCaptureStore.consume(captureMetadata.captureId);
+    if (!originalSession) {
+      throw new ScreenCaptureError("SCREEN_CAPTURE_EXPIRED", "The temporary capture expired before redaction.");
+    }
+    let redaction;
+    try {
+      redaction = await redactCapture(originalSession);
+    } finally {
+      originalSession.originalDataUrl = null;
+    }
+    const afterRedactionTab = await getActiveTab();
+    if (generation !== visualCaptureGeneration || !tabStillMatches(tab, afterRedactionTab)) {
+      redaction = null;
+      throw new ScreenCaptureError("PAGE_NAVIGATED", "The selected page changed during local redaction.");
+    }
+    const redactionMetadata = visualRedactionStore.replace(redaction);
+    redaction = null;
     latestVisualTab = { id: tab.id, windowId: tab.windowId, url: tab.url };
     const regionCount = response.data?.regions?.length ?? 0;
-    visualCaptureSummary.textContent = `${metadata.width}×${metadata.height} PNG · ${regionCount} visible field ${regionCount === 1 ? "region" : "regions"} · expires in 60 seconds.`;
+    visualCaptureSummary.textContent = `${redactionMetadata.width}×${redactionMetadata.height} sanitized PNG · ${redactionMetadata.coveredCount}/${redactionMetadata.requiredCount} sensitive regions covered · ${regionCount} visible field ${regionCount === 1 ? "region" : "regions"}.`;
     visualCapturePanel.hidden = false;
     renderScanResult(
-      "Visible screen analyzed locally. The original remains only in temporary memory and cannot enter planning until a later redaction stage consumes it.",
+      "Local redaction passed its coverage check. The original was discarded; the sanitized result remains temporary and is not available to the planner.",
       "success",
     );
   } catch (error) {
@@ -602,6 +636,7 @@ if (globalThis.chrome?.tabs?.onActivated?.addListener) {
 globalThis.addEventListener("pagehide", () => {
   visualCaptureGeneration += 1;
   visualCaptureStore.clear();
+  visualRedactionStore.clear();
 }, { once: true });
 
 await Promise.all([

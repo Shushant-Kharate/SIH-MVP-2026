@@ -87,7 +87,12 @@ describe("popup permission and compatibility UX", () => {
   it("reports capture failures without claiming that screenshot data escaped", () => {
     assert.deepEqual(createSafeFailureView("SCREEN_CAPTURE_DENIED"), {
       title: "Screen analysis stopped",
-      copy: "No screenshot was stored, logged or sent. Reload the form and try again, or continue with metadata-only scanning.",
+      copy: "No screenshot was stored, logged or sent, and any candidate result was discarded. Reload the form and try again, or continue with metadata-only scanning.",
+      recovery: "retry-or-scan",
+    });
+    assert.deepEqual(createSafeFailureView("VISUAL_COVERAGE_FAILED"), {
+      title: "Screen analysis stopped",
+      copy: "No screenshot was stored, logged or sent, and any candidate result was discarded. Reload the form and try again, or continue with metadata-only scanning.",
       recovery: "retry-or-scan",
     });
   });
