@@ -70,7 +70,7 @@ if ((manifest.optional_host_permissions ?? []).length > 0) {
 if ((manifest.content_scripts ?? []).length > 0) {
   addFinding(manifestPath, "static content script is registered; selected-tab injection must remain on demand");
 }
-const expectedExtensionCsp = "script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; connect-src 'self' data: blob:; img-src 'self' data: blob:; object-src 'self'";
+const expectedExtensionCsp = "script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; connect-src 'self' http://localhost:8787 data: blob:; img-src 'self' data: blob:; object-src 'self'";
 if (manifest.content_security_policy?.extension_pages !== expectedExtensionCsp) {
   addFinding(manifestPath, "extension page content security policy exceeds the packaged local OCR boundary");
 }

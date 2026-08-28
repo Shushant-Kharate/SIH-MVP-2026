@@ -55,7 +55,7 @@ describe("built Chrome extension", () => {
     const extensionManifest = JSON.parse(await readFile(path.join(outputRoot, "manifest.json"), "utf8"));
     assert.equal(
       extensionManifest.content_security_policy.extension_pages,
-      "script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; connect-src 'self' data: blob:; img-src 'self' data: blob:; object-src 'self'",
+      "script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; connect-src 'self' http://localhost:8787 data: blob:; img-src 'self' data: blob:; object-src 'self'",
     );
   });
 

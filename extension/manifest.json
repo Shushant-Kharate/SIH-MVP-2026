@@ -21,6 +21,6 @@
     "http://localhost:8787/*"
   ],
   "content_security_policy": {
-    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; connect-src 'self' data: blob:; img-src 'self' data: blob:; object-src 'self'"
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; connect-src 'self' http://localhost:8787 data: blob:; img-src 'self' data: blob:; object-src 'self'"
   }
 }
