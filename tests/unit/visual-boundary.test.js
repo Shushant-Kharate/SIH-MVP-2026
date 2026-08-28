@@ -8,6 +8,8 @@ const forbiddenVisualArtifacts = [
   "visualSnapshot",
   "pixelBounds",
   "appliedMasks",
+  "rawOcr",
+  "ocrText",
 ];
 
 async function source(relativePath) {

@@ -149,6 +149,7 @@ describe("Chrome extension shell", () => {
   it("provides a dedicated one-time Privacy Inspector with local approval gates", async () => {
     const inspectorHtml = await readExtensionFile("pages/inspector.html");
     const inspectorScript = await readExtensionFile("src/inspector.js");
+    const selectiveOcrScript = await readExtensionFile("src/vision/selective-ocr.js");
     const backgroundScript = await readExtensionFile("src/background.js");
 
     for (const id of [
@@ -156,6 +157,8 @@ describe("Chrome extension shell", () => {
       "sanitized-preview",
       "coverage-status",
       "profile-status",
+      "perception-status",
+      "run-local-perception",
       "safe-preview-json",
       "manual-mask-mode",
       "approve-review",
@@ -164,6 +167,9 @@ describe("Chrome extension shell", () => {
     assert.match(inspectorScript, /MESSAGE_TYPES\.VISUAL_SESSION_TAKE/);
     assert.match(inspectorScript, /MESSAGE_TYPES\.VISUAL_PRIVACY_CHECK/);
     assert.match(inspectorScript, /await redactCapture/);
+    assert.match(inspectorScript, /runLocalVisualDetection/);
+    assert.match(inspectorScript, /runSelectiveOcr/);
+    assert.match(selectiveOcrScript, /rawTextRetained:\s*false/);
     assert.match(inspectorScript, /addEventListener\("pointerdown"/);
     assert.match(inspectorScript, /session\.originalDataUrl = null/);
     assert.match(backgroundScript, /isTrustedExtensionPage/);

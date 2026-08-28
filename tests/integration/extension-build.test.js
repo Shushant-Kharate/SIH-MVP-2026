@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { readFile, readdir } from "node:fs/promises";
+import { createHash } from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, it } from "node:test";
@@ -37,6 +38,25 @@ describe("built Chrome extension", () => {
       "pages/profile.html",
       "pages/profile.js",
     ]) assert.equal(files.includes(expected), true, expected);
+  });
+
+  it("contains only checksum-pinned local OCR runtime and language assets", async () => {
+    const manifest = JSON.parse(await readFile(
+      new URL("../../extension/vendor/tesseract-assets.json", import.meta.url),
+      "utf8",
+    ));
+
+    for (const asset of manifest.assets) {
+      const contents = await readFile(path.join(outputRoot, "vendor", "tesseract", asset.target));
+      assert.equal(contents.byteLength, asset.bytes, asset.target);
+      assert.equal(createHash("sha256").update(contents).digest("hex"), asset.sha256, asset.target);
+    }
+
+    const extensionManifest = JSON.parse(await readFile(path.join(outputRoot, "manifest.json"), "utf8"));
+    assert.equal(
+      extensionManifest.content_security_policy.extension_pages,
+      "script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; connect-src 'self' data: blob:; img-src 'self' data: blob:; object-src 'self'",
+    );
   });
 
   it("contains no API credential or provider endpoint markers", async () => {

@@ -15,6 +15,7 @@
     </div>
     <div class="top-actions">
       <span class="timer" id="expiry-timer">Expires in 60s</span>
+      <button class="secondary" id="run-local-perception" type="button">Run selective OCR + face check</button>
       <button class="secondary" id="cancel-review" type="button">Cancel and clear</button>
       <button class="primary" id="approve-review" type="button" disabled>Approve sanitized context</button>
     </div>
@@ -33,6 +34,10 @@
       <article class="gate" id="network-gate" data-state="safe">
         <span>Network</span>
         <strong>Disabled for this preview</strong>
+      </article>
+      <article class="gate" id="perception-gate" data-state="pending">
+        <span>Local perception</span>
+        <strong id="perception-status">Not run · optional</strong>
       </article>
     </section>
 

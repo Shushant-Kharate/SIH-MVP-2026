@@ -76,7 +76,7 @@ button {
 .secondary[data-active="true"] { color: #fff; background: var(--warning); }
 
 main { max-width: 1500px; margin: 0 auto; padding: 22px 28px 40px; }
-.status-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.status-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
 .gate, .notice, .preview-card, .panel {
   border: 1px solid var(--line);
   border-radius: 14px;

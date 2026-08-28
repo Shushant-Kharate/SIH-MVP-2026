@@ -1,5 +1,6 @@
 import { readFile, readdir } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -8,6 +9,7 @@ const repositoryRoot = path.resolve(scriptsDirectory, "..");
 const extensionSource = path.join(repositoryRoot, "extension");
 const extensionBuild = path.join(repositoryRoot, "dist", "extension");
 const findings = [];
+const verifiedVendorAssets = new Set();
 
 function runGit(args) {
   return spawnSync("git", args, { cwd: repositoryRoot, encoding: "utf8" });
@@ -26,6 +28,19 @@ async function listFiles(directory) {
 
 function addFinding(file, rule) {
   findings.push({ file: path.relative(repositoryRoot, file).replaceAll("\\", "/"), rule });
+}
+
+const vendorManifestPath = path.join(extensionSource, "vendor", "tesseract-assets.json");
+const vendorManifest = JSON.parse(await readFile(vendorManifestPath, "utf8"));
+for (const asset of vendorManifest.assets) {
+  const builtAsset = path.join(extensionBuild, "vendor", "tesseract", asset.target);
+  const contents = await readFile(builtAsset);
+  const digest = createHash("sha256").update(contents).digest("hex");
+  if (contents.byteLength !== asset.bytes || digest !== asset.sha256) {
+    addFinding(builtAsset, "packaged OCR asset differs from its pinned byte count or SHA-256");
+  } else {
+    verifiedVendorAssets.add(path.resolve(builtAsset));
+  }
 }
 
 const ignoredEnvironment = runGit(["check-ignore", "--quiet", ".env"]);
@@ -55,8 +70,9 @@ if ((manifest.optional_host_permissions ?? []).length > 0) {
 if ((manifest.content_scripts ?? []).length > 0) {
   addFinding(manifestPath, "static content script is registered; selected-tab injection must remain on demand");
 }
-if (manifest.content_security_policy?.extension_pages !== "script-src 'self'; object-src 'self'") {
-  addFinding(manifestPath, "extension page content security policy is not self-only");
+const expectedExtensionCsp = "script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; connect-src 'self' data: blob:; img-src 'self' data: blob:; object-src 'self'";
+if (manifest.content_security_policy?.extension_pages !== expectedExtensionCsp) {
+  addFinding(manifestPath, "extension page content security policy exceeds the packaged local OCR boundary");
 }
 
 const injectorPath = path.join(extensionSource, "src", "core", "content-injector.js");
@@ -100,7 +116,11 @@ for (const directory of [extensionSource, extensionBuild]) {
       addFinding(file, "tab screenshot capture outside the explicit popup workflow");
     }
     for (const { rule, pattern } of codePatterns) {
-      if (pattern.test(contents)) addFinding(file, rule);
+      const isVerifiedEmscriptenAsset = verifiedVendorAssets.has(path.resolve(file));
+      const isRequiredRuntimeConstruct = rule === "dynamic eval" || rule === "dynamic Function constructor";
+      if (pattern.test(contents) && !(isVerifiedEmscriptenAsset && isRequiredRuntimeConstruct)) {
+        addFinding(file, rule);
+      }
     }
     for (const { rule, pattern } of providerPatterns) {
       if (pattern.test(contents)) addFinding(file, rule);
@@ -151,6 +171,20 @@ const visualRedactorSource = await readFile(visualRedactorPath, "utf8");
 if (!/verifyVisualCoverage\s*\(/.test(visualRedactorSource)
   || !/VISUAL_COVERAGE_FAILED/.test(visualRedactorSource)) {
   addFinding(visualRedactorPath, "sanitized output is not coverage-gated");
+}
+const selectiveOcrPath = path.join(extensionSource, "src", "vision", "selective-ocr.js");
+const selectiveOcrSource = await readFile(selectiveOcrPath, "utf8");
+for (const required of [
+  /chrome\.runtime\.getURL\(["']vendor\/tesseract["']\)/,
+  /workerBlobURL:\s*false/,
+  /cacheMethod:\s*["']none["']/,
+  /MAX_CANDIDATES\s*=\s*6/,
+  /MAX_TOTAL_AREA_RATIO\s*=\s*0\.4/,
+]) {
+  if (!required.test(selectiveOcrSource)) addFinding(selectiveOcrPath, "offline selective OCR invariant is missing");
+}
+if (/https?:\/\//.test(selectiveOcrSource)) {
+  addFinding(selectiveOcrPath, "OCR source contains a remote runtime or model URL");
 }
 
 if (findings.length > 0) {

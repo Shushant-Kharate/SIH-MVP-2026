@@ -2,6 +2,8 @@ import { MESSAGE_TYPES } from "../../shared/message-types.js";
 import { PRIVACY_LEVELS } from "../../shared/privacy-levels.js";
 import { createVisualInspectorPreview } from "../../shared/visual-inspector-contract.js";
 import { redactCapture } from "./privacy/visual-redactor.js";
+import { runLocalVisualDetection } from "./vision/local-vision-detector.js";
+import { runSelectiveOcr } from "./vision/selective-ocr.js";
 
 const originalPreview = document.querySelector("#original-preview");
 const sanitizedPreview = document.querySelector("#sanitized-preview");
@@ -19,6 +21,9 @@ const approveButton = document.querySelector("#approve-review");
 const cancelButton = document.querySelector("#cancel-review");
 const expiryTimer = document.querySelector("#expiry-timer");
 const notice = document.querySelector("#notice");
+const runPerceptionButton = document.querySelector("#run-local-perception");
+const perceptionGate = document.querySelector("#perception-gate");
+const perceptionStatus = document.querySelector("#perception-status");
 
 let session = null;
 let redaction = null;
@@ -32,6 +37,9 @@ let disposed = false;
 let approved = false;
 let redrawGeneration = 0;
 let draft = null;
+let inferenceRegions = [];
+let ocrClassifications = new Map();
+let perceptionInProgress = false;
 
 function setNotice(text, tone = "neutral") {
   notice.textContent = text;
@@ -57,6 +65,7 @@ function disableReview(reason) {
   disposed = true;
   approveButton.disabled = true;
   manualMaskButton.disabled = true;
+  runPerceptionButton.disabled = true;
   for (const control of regionList.querySelectorAll("select, button")) control.disabled = true;
   if (expiryInterval !== null) clearInterval(expiryInterval);
   expiryInterval = null;
@@ -77,9 +86,21 @@ function currentRegions() {
   if (!session) return [];
   const automatic = session.visualSnapshot.regions.map((region) => ({
     ...region,
+    ...(ocrClassifications.get(region.regionId) ?? {}),
     privacyLevel: regionLevels.get(region.regionId) ?? region.privacyLevel,
   }));
-  return [...automatic, ...manualRegions];
+  const inferred = inferenceRegions.map((region) => ({
+    ...region,
+    privacyLevel: regionLevels.get(region.regionId) ?? region.privacyLevel,
+  }));
+  return [...automatic, ...inferred, ...manualRegions];
+}
+
+function currentAdditionalRegions() {
+  return [...inferenceRegions, ...manualRegions].map((region) => ({
+    ...region,
+    privacyLevel: regionLevels.get(region.regionId) ?? region.privacyLevel,
+  }));
 }
 
 function allowedLevels(region) {
@@ -167,7 +188,7 @@ function updateApprovalState() {
     : "Coverage incomplete — approval blocked";
   maskCount.textContent = `${redaction?.maskCount ?? 0} ${(redaction?.maskCount ?? 0) === 1 ? "mask" : "masks"}`;
   profileGate.dataset.state = profileCheckPassed ? "safe" : "unsafe";
-  approveButton.disabled = disposed || approved || !coveragePassed || !profileCheckPassed;
+  approveButton.disabled = disposed || approved || perceptionInProgress || !coveragePassed || !profileCheckPassed;
 }
 
 async function refreshSafePreview(generation = redrawGeneration) {
@@ -201,6 +222,7 @@ async function rerunRedaction(message) {
       ...session.visualSnapshot,
       regions: session.visualSnapshot.regions.map((region) => ({
         ...region,
+        ...(ocrClassifications.get(region.regionId) ?? {}),
         privacyLevel: regionLevels.get(region.regionId) ?? region.privacyLevel,
       })),
     };
@@ -209,7 +231,7 @@ async function rerunRedaction(message) {
       width: session.width,
       height: session.height,
       visualSnapshot,
-    }, { additionalRegions: manualRegions });
+    }, { additionalRegions: currentAdditionalRegions() });
     if (disposed || approved || generation !== redrawGeneration) return;
     redaction = result;
     sanitizedPreview.src = redaction.sanitizedDataUrl;
@@ -241,6 +263,91 @@ manualMaskButton.addEventListener("click", () => {
   manualMaskButton.dataset.active = String(manualMaskMode);
   manualMaskButton.textContent = manualMaskMode ? "Drawing enabled" : "Draw manual mask";
   regionOverlay.dataset.drawing = String(manualMaskMode);
+});
+
+async function decodeForLocalVision() {
+  const bitmap = await createImageBitmap(await (await fetch(session.originalDataUrl)).blob());
+  const width = Math.min(320, bitmap.width);
+  const height = Math.max(1, Math.round(bitmap.height * (width / bitmap.width)));
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const context = canvas.getContext("2d", { willReadFrequently: true });
+  try {
+    context.drawImage(bitmap, 0, 0, width, height);
+    return context.getImageData(0, 0, width, height);
+  } finally {
+    bitmap.close?.();
+    canvas.width = 1;
+    canvas.height = 1;
+  }
+}
+
+runPerceptionButton.addEventListener("click", async () => {
+  if (disposed || approved || !session?.originalDataUrl) return;
+  const expectedRedrawGeneration = redrawGeneration;
+  perceptionInProgress = true;
+  runPerceptionButton.disabled = true;
+  approveButton.disabled = true;
+  perceptionGate.dataset.state = "pending";
+  perceptionStatus.textContent = "Running packaged local detection…";
+  setNotice("Checking face and text candidates locally; OCR will receive only bounded crops.", "neutral");
+  try {
+    const image = await decodeForLocalVision();
+    const visual = runLocalVisualDetection(image, {
+      sourceWidth: session.width,
+      sourceHeight: session.height,
+    });
+    const ocr = await runSelectiveOcr({
+      sourceDataUrl: session.originalDataUrl,
+      width: session.width,
+      height: session.height,
+      regions: [...session.visualSnapshot.regions, ...visual.textCandidates],
+      onProgress(progress) {
+        if (!disposed) perceptionStatus.textContent = `Offline OCR · ${progress.status} · ${Math.round(progress.progress * 100)}%`;
+      },
+    });
+    if (disposed || approved || expectedRedrawGeneration !== redrawGeneration) return;
+    inferenceRegions = [...visual.faceRegions];
+    ocrClassifications = new Map();
+    for (const detection of ocr.detections) {
+      if (!detection.detected) continue;
+      const existing = session.visualSnapshot.regions.some((region) => region.regionId === detection.regionId);
+      if (existing) {
+        ocrClassifications.set(detection.regionId, {
+          semanticType: detection.semanticType,
+          confidence: detection.classificationConfidence,
+          risk: detection.risk,
+        });
+        regionLevels.set(detection.regionId, detection.privacyLevel);
+      } else {
+        inferenceRegions.push({
+          regionId: detection.regionId,
+          role: "manual-mask",
+          semanticType: detection.semanticType,
+          privacyLevel: detection.privacyLevel,
+          confidence: detection.classificationConfidence,
+          risk: detection.risk,
+          kind: "ocr-sensitive",
+          pixelBounds: detection.pixelBounds,
+        });
+      }
+    }
+    await rerunRedaction("Local face/text detection and selective OCR completed; raw OCR text was discarded.");
+    perceptionGate.dataset.state = "safe";
+    perceptionStatus.textContent = `${visual.faceRegions.length} face masks · ${ocr.candidateCount} OCR crops · ${ocr.detections.filter((item) => item.detected).length} sensitive results`;
+  } catch {
+    if (!disposed) {
+      perceptionGate.dataset.state = "unsafe";
+      perceptionStatus.textContent = "Local perception unavailable";
+      setNotice("Packaged local perception failed safely. No OCR text was retained; approval remains based on current verified masks.", "error");
+      updateApprovalState();
+    }
+  } finally {
+    perceptionInProgress = false;
+    updateApprovalState();
+    if (!disposed && !approved) runPerceptionButton.disabled = false;
+  }
 });
 
 regionOverlay.addEventListener("pointerdown", (event) => {
@@ -302,6 +409,7 @@ approveButton.addEventListener("click", () => {
   originalPreview.removeAttribute("src");
   session.originalDataUrl = null;
   manualMaskButton.disabled = true;
+  runPerceptionButton.disabled = true;
   approveButton.disabled = true;
   cancelButton.textContent = "Close inspector";
   if (expiryInterval !== null) clearInterval(expiryInterval);
