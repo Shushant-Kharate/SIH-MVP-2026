@@ -50,14 +50,22 @@
         </div>
         <span class="run-action">View</span>
       </button>
-      <article class="action-card">
+      <button class="action-card action-card--button" id="plan-fill" type="button" disabled>
         <span class="step-number">03</span>
         <div>
           <h2>Plan and fill locally</h2>
           <p>Validate actions before resolving values.</p>
         </div>
-        <span class="coming-soon">Next</span>
-      </article>
+        <span class="run-action">Fill</span>
+      </button>
+      <button class="action-card action-card--button" id="view-audit" type="button">
+        <span class="step-number">04</span>
+        <div>
+          <h2>View privacy audit</h2>
+          <p>Inspect metadata-only local events.</p>
+        </div>
+        <span class="run-action">View</span>
+      </button>
     </section>
 
     <section class="scan-result" id="scan-result" data-tone="neutral" role="status" hidden></section>
@@ -70,13 +78,24 @@
       </details>
     </section>
 
+    <section class="audit-panel" id="audit-panel" hidden>
+      <header class="panel-header">
+        <div>
+          <strong>Local privacy audit</strong>
+          <span id="audit-summary">No events recorded.</span>
+        </div>
+        <button id="clear-audit" type="button">Clear</button>
+      </header>
+      <ol class="audit-list" id="audit-list"></ol>
+    </section>
+
     <aside class="privacy-card">
       <strong>Session-only storage:</strong> profile values remain in Chrome's temporary extension
       session and are cleared when the browser restarts. This MVP does not claim an encrypted vault.
     </aside>
 
     <footer class="footer-status">
-      <span>Backend: not connected</span>
+      <span id="backend-status">Backend: not checked</span>
       <span id="available-count">0 profile categories available</span>
     </footer>
   </main>

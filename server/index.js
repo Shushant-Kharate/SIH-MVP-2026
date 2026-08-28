@@ -1,6 +1,7 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import "dotenv/config";
 import express from "express";
 
 import { createConfig } from "./config.js";
@@ -16,7 +17,7 @@ import { createSafeLogger } from "./security/safe-logger.js";
 const serverDirectory = path.dirname(fileURLToPath(import.meta.url));
 const demoDirectory = path.resolve(serverDirectory, "..", "demo");
 
-function setSecurityHeaders(_responsePath, response) {
+function setSecurityHeaders(response) {
   response.setHeader("Cache-Control", "no-store");
   response.setHeader(
     "Content-Security-Policy",

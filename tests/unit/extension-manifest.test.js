@@ -63,4 +63,29 @@ describe("Chrome extension shell", () => {
     assert.match(popupScript, /payloadJson\.textContent = JSON\.stringify/);
     assert.doesNotMatch(popupScript, /innerHTML/);
   });
+
+  it("exposes the locally validated plan-and-fill action", async () => {
+    const popupHtml = await readExtensionFile("pages/popup.html");
+    const popupScript = await readExtensionFile("src/popup.js");
+
+    assert.match(popupHtml, /id="plan-fill"/);
+    assert.match(popupScript, /MESSAGE_TYPES\.PLAN_REQUEST/);
+    assert.match(popupScript, /MESSAGE_TYPES\.VALIDATE_AND_EXECUTE/);
+    assert.match(popupScript, /critical identifier/);
+  });
+
+  it("provides a metadata-only audit viewer and guarded submission code", async () => {
+    const popupHtml = await readExtensionFile("pages/popup.html");
+    const popupScript = await readExtensionFile("src/popup.js");
+    const confirmationScript = await readExtensionFile("src/ui/confirmation-overlay.js");
+
+    assert.match(popupHtml, /id="view-audit"/);
+    assert.match(popupHtml, /id="audit-list"/);
+    assert.match(popupScript, /MESSAGE_TYPES\.GET_AUDIT_LOG/);
+    assert.match(popupScript, /MESSAGE_TYPES\.CLEAR_AUDIT_LOG/);
+    assert.match(confirmationScript, /stopImmediatePropagation/);
+    assert.match(confirmationScript, /requestSubmit/);
+    assert.doesNotMatch(popupScript, /innerHTML/);
+    assert.doesNotMatch(confirmationScript, /innerHTML/);
+  });
 });

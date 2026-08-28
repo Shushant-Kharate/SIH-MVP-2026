@@ -9,9 +9,16 @@ const clearProfileButton = document.querySelector("#clear-profile");
 const scanButton = document.querySelector("#scan-form");
 const scanResult = document.querySelector("#scan-result");
 const inspectPayloadButton = document.querySelector("#inspect-payload");
+const planFillButton = document.querySelector("#plan-fill");
+const viewAuditButton = document.querySelector("#view-audit");
 const payloadPanel = document.querySelector("#payload-panel");
 const payloadCheck = document.querySelector("#payload-check");
 const payloadJson = document.querySelector("#payload-json");
+const backendStatus = document.querySelector("#backend-status");
+const auditPanel = document.querySelector("#audit-panel");
+const auditSummary = document.querySelector("#audit-summary");
+const auditList = document.querySelector("#audit-list");
+const clearAuditButton = document.querySelector("#clear-audit");
 
 let latestScanResult = null;
 let profileReady = false;
@@ -41,6 +48,7 @@ function renderProfileStatus(status) {
   openProfileButton.textContent = hasProfile ? "Replace profile" : "Set up profile";
   clearProfileButton.disabled = !hasProfile;
   inspectPayloadButton.disabled = !(profileReady && latestScanResult);
+  planFillButton.disabled = !(profileReady && latestScanResult);
 }
 
 async function refreshProfileStatus() {
@@ -52,6 +60,7 @@ async function refreshProfileStatus() {
     clearProfileButton.disabled = true;
     profileReady = false;
     inspectPayloadButton.disabled = true;
+    planFillButton.disabled = true;
     return;
   }
   renderProfileStatus(response.data);
@@ -63,6 +72,37 @@ function renderScanResult(text, tone) {
   scanResult.textContent = text;
 }
 
+function renderAudit(entries) {
+  auditList.replaceChildren();
+  const recentEntries = entries.slice(-30).reverse();
+  auditSummary.textContent = entries.length === 0
+    ? "No events recorded."
+    : `${entries.length} metadata-only ${entries.length === 1 ? "event" : "events"} in this session.`;
+
+  for (const entry of recentEntries) {
+    const item = document.createElement("li");
+    item.dataset.status = entry.status;
+    const category = entry.profileKey ?? "no private category";
+    item.textContent = `${entry.fieldId} · ${entry.action} · ${category} · ${entry.status} · ${entry.code}`;
+    auditList.append(item);
+  }
+}
+
+async function refreshAudit() {
+  const response = await sendMessage(MESSAGE_TYPES.GET_AUDIT_LOG);
+  if (!response?.ok) {
+    auditSummary.textContent = response?.error?.message ?? "Audit history unavailable.";
+    auditList.replaceChildren();
+    return;
+  }
+  renderAudit(response.data.entries);
+}
+
+async function toggleAudit() {
+  auditPanel.hidden = !auditPanel.hidden;
+  if (!auditPanel.hidden) await refreshAudit();
+}
+
 async function scanActiveTab() {
   if (!globalThis.chrome?.tabs?.query || !globalThis.chrome?.tabs?.sendMessage) {
     renderScanResult("Open the popup from the installed extension on a controlled demo form.", "error");
@@ -72,6 +112,7 @@ async function scanActiveTab() {
   scanButton.disabled = true;
   latestScanResult = null;
   inspectPayloadButton.disabled = true;
+  planFillButton.disabled = true;
   payloadPanel.hidden = true;
   renderScanResult("Scanning safe field metadata…", "neutral");
 
@@ -88,6 +129,7 @@ async function scanActiveTab() {
     const result = response.data;
     latestScanResult = result;
     inspectPayloadButton.disabled = !profileReady;
+    planFillButton.disabled = !profileReady;
     renderScanResult(
       `Detected ${result.fieldCount} fields · ${result.privateFieldCount} private · ${result.blockedFieldCount} blocked · ${result.snapshotId}`,
       "success",
@@ -97,6 +139,66 @@ async function scanActiveTab() {
   } finally {
     scanButton.disabled = false;
   }
+}
+
+async function planAndFill() {
+  if (!latestScanResult) {
+    renderScanResult("Scan the current form before requesting a plan.", "error");
+    return;
+  }
+
+  planFillButton.disabled = true;
+  renderScanResult("Sending only the privacy-checked field map to the local planner…", "neutral");
+  const planning = await sendMessage(MESSAGE_TYPES.PLAN_REQUEST, {
+    scanResult: latestScanResult,
+    task: "Fill this application form using my saved profile",
+  });
+
+  if (!planning?.ok) {
+    backendStatus.textContent = "Backend: unavailable";
+    renderScanResult(planning?.error?.message ?? "The local planner is unavailable.", "error");
+    planFillButton.disabled = !profileReady;
+    return;
+  }
+
+  const { request, plan, privacyCheck } = planning.data;
+  backendStatus.textContent = `Backend: ${plan.planner} planner`;
+  const fieldsById = new Map(request.fields.map((field) => [field.fieldId, field]));
+  const criticalCount = plan.actions.filter((action) => (
+    action.action === "fill_private" && fieldsById.get(action.target)?.risk === "critical"
+  )).length;
+
+  let criticalApproved = true;
+  if (criticalCount > 0) {
+    criticalApproved = window.confirm(
+      `This locally validated plan will fill ${criticalCount} critical identifier ${criticalCount === 1 ? "field" : "fields"}. The values remain local and will not be sent to the planner. Continue?`,
+    );
+  }
+  if (!criticalApproved) {
+    renderScanResult("Fill cancelled before any critical value was resolved.", "neutral");
+    planFillButton.disabled = false;
+    return;
+  }
+
+  renderScanResult(`Plan validated by the backend · ${privacyCheck.matchCount} profile matches outbound · checking the live form…`, "neutral");
+  const execution = await sendMessage(MESSAGE_TYPES.VALIDATE_AND_EXECUTE, {
+    request,
+    plan,
+    criticalApproved,
+  });
+
+  if (!execution?.ok) {
+    renderScanResult(execution?.error?.message ?? "The plan was blocked before execution.", "error");
+    planFillButton.disabled = false;
+    return;
+  }
+
+  renderScanResult(
+    `Filled ${execution.data.filledCount} fields locally · ${execution.data.planner} planner · submission confirmation armed for ${execution.data.guardedForm}.`,
+    "success",
+  );
+  if (!auditPanel.hidden) await refreshAudit();
+  planFillButton.disabled = false;
 }
 
 async function inspectSafePayload() {
@@ -138,7 +240,17 @@ clearProfileButton.addEventListener("click", async () => {
   else await refreshProfileStatus();
 });
 
+clearAuditButton.addEventListener("click", async () => {
+  const confirmed = window.confirm("Clear the metadata-only audit history for this browser session?");
+  if (!confirmed) return;
+  const response = await sendMessage(MESSAGE_TYPES.CLEAR_AUDIT_LOG);
+  if (response?.ok) renderAudit([]);
+  else auditSummary.textContent = response?.error?.message ?? "Audit history could not be cleared.";
+});
+
 scanButton.addEventListener("click", scanActiveTab);
 inspectPayloadButton.addEventListener("click", inspectSafePayload);
+planFillButton.addEventListener("click", planAndFill);
+viewAuditButton.addEventListener("click", toggleAudit);
 
 await refreshProfileStatus();
