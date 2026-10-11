@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Privacy Inspector · PrivacyFill AI</title>
+  <link rel="stylesheet" href="./inspector.css">
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <span class="eyebrow">PrivacyFill AI · local-only review</span>
+      <h1>Privacy Inspector</h1>
+      <p>Review what is hidden before any visual context becomes eligible for a future planner contract.</p>
+    </div>
+    <div class="top-actions">
+      <span class="timer" id="expiry-timer">Expires in 60s</span>
+      <button class="secondary" id="run-local-perception" type="button">Run selective OCR + face check</button>
+      <button class="secondary" id="cancel-review" type="button">Cancel and clear</button>
+      <button class="primary" id="approve-review" type="button" disabled>Approve sanitized context</button>
+    </div>
+  </header>
+
+  <main>
+    <section class="status-grid" aria-label="Privacy gates">
+      <article class="gate" id="coverage-gate" data-state="pending">
+        <span>Coverage</span>
+        <strong id="coverage-status">Checking masks…</strong>
+      </article>
+      <article class="gate" id="profile-gate" data-state="pending">
+        <span>Profile leak check</span>
+        <strong id="profile-status">Checking locally…</strong>
+      </article>
+      <article class="gate" id="network-gate" data-state="safe">
+        <span>Network</span>
+        <strong>Disabled for this preview</strong>
+      </article>
+      <article class="gate" id="perception-gate" data-state="pending">
+        <span>Local perception</span>
+        <strong id="perception-status">Not run · optional</strong>
+      </article>
+    </section>
+
+    <section class="notice" id="notice" data-tone="neutral" aria-live="polite">
+      Taking ownership of the one-time visual session…
+    </section>
+
+    <section class="preview-grid">
+      <article class="preview-card">
+        <div class="card-heading">
+          <div><span>Private source</span><h2>Original — local and temporary</h2></div>
+          <button class="secondary small" id="manual-mask-mode" type="button">Draw manual mask</button>
+        </div>
+        <p class="hint">When manual-mask mode is active, drag over anything the automatic scan missed.</p>
+        <div class="image-stage" id="original-stage">
+          <img id="original-preview" alt="Temporary original visible-tab capture">
+          <div class="region-overlay" id="region-overlay" aria-hidden="true"></div>
+        </div>
+      </article>
+
+      <article class="preview-card">
+        <div class="card-heading">
+          <div><span>Candidate output</span><h2>Sanitized preview</h2></div>
+          <span class="badge" id="mask-count">0 masks</span>
+        </div>
+        <p class="hint">This is a newly rendered PNG. It cannot be approved unless both privacy gates pass.</p>
+        <div class="image-stage">
+          <img id="sanitized-preview" alt="Coverage-verified sanitized capture">
+        </div>
+      </article>
+    </section>
+
+    <section class="review-grid">
+      <article class="panel">
+        <div class="card-heading">
+          <div><span>Local detections</span><h2>Region classifications</h2></div>
+          <span class="badge" id="region-count">0 regions</span>
+        </div>
+        <p class="hint">Known private or blocked regions cannot be downgraded. You can strengthen classifications or mark missed areas manually.</p>
+        <div class="region-list" id="region-list"></div>
+      </article>
+
+      <article class="panel payload-panel">
+        <div class="card-heading">
+          <div><span>Exact local proof</span><h2>Visual inspector preview v1</h2></div>
+          <span class="badge">Not network-enabled</span>
+        </div>
+        <p class="hint">No screenshot, OCR text, URL, selector, HTML, or profile value is present in this JSON.</p>
+        <pre id="safe-preview-json">Waiting for a valid session…</pre>
+      </article>
+    </section>
+  </main>
+
+  <script type="module" src="./inspector.js"></script>
+</body>
+</html>

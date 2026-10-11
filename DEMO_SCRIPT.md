@@ -38,7 +38,8 @@ extension → value-blind planner**, followed by **local validation and resoluti
 5. In `chrome://extensions`, reload the unpacked `dist/extension` build and confirm no errors.
 6. Open the profile page, select **Use fictional demo profile**, and save it to the session.
 7. Reset both demo forms and clear the extension audit log.
-8. Complete all rows in `tests/manual/acceptance-checklist.md` and record Chrome version/operator.
+8. Complete all rows in `tests/manual/acceptance-checklist.md` and
+   `tests/manual/external-page-checklist.md`; record Chrome version/operator and all three Google Form runs.
 9. Close notifications, private tabs, password-manager prompts and unrelated applications.
 10. Keep the backup recording and screenshots locally available without real PII.
 
@@ -67,8 +68,9 @@ is in `chrome.storage.session`; it is temporary and we do not call it an encrypt
 
 Return to `http://localhost:8787/demo/scholarship.html`. Open the popup and select **Scan**.
 
-Expected: the scan reports supported fields and identifies Aadhaar as critical. Non-profile programme,
-income and consent controls may remain for the user.
+Before clicking, point to **Ready to scan this tab** and “Scanning starts only after your click.” Then scan.
+Expected: **Standard form detected** appears with detected, mapped, blocked and unsupported counts.
+Non-profile programme, income and consent controls may remain for the user.
 
 **Architecture lead:** “The page is treated as untrusted. We collect labels, types, required state and
 safe options—never current field values, full HTML or a screenshot. Field IDs are anonymous.”
@@ -88,7 +90,8 @@ Point out:
 
 ### 2:25–3:15 — Plan, validate and fill locally
 
-Select **Fill**. Approve the critical-identifier disclosure prompt when asked.
+The Fill action is deliberately disabled until the checked JSON and zero-match proof above have been
+displayed. Select **Fill** and approve the critical-identifier disclosure prompt when asked.
 
 Expected: supported fields fill and highlight; the popup identifies the planner as fallback and reports
 the local fill result.
@@ -117,20 +120,21 @@ immediately rearmed.”
 Open `http://localhost:8787/demo/service-registration.html`, scan it, and point out the mixed label/ARIA
 metadata and the OTP field.
 
-**Operator:** Run **Fill** and approve PAN. Show that mapped fields fill but OTP remains empty.
+**Operator:** Select **View** to confirm zero matches, then run **Fill** and approve PAN. Show that mapped
+fields fill but OTP remains empty.
 
 **Architecture lead:** “Unknown sensitive fields have no fillable profile key. Unsupported, stale,
 disabled, readonly or malformed targets are rejected locally.”
 
 ### 4:35–5:00 — Evidence, limitation and close
 
-**Evidence lead:** “Our automated gate covers contracts, seeded-value leakage, local execution, remote
-failure fallback, audit safety and submission interception. We also run 13 Chrome checks on the release
-laptop.”
+**Evidence lead:** “Our automated gate covers selected-tab injection, external metadata minimization,
+contracts, seeded-value leakage, framework-safe execution, remote fallback, audit safety and submission
+interception. We also run the 13 external Chrome checks on this release laptop.”
 
-**Presenter:** “This prototype is intentionally localhost-only and label-driven. Our contribution is an
-inspectable end-to-end web implementation of the available-but-invisible pattern—not a claim of universal
-zero leakage or production encrypted storage.”
+**Presenter:** “This prototype can be invoked on user-selected standard web forms and an experimental,
+tested subset of Google Forms. Compatibility depends on accessible metadata and native controls. It is not
+a claim that every website works, or that privacy is mathematically guaranteed.”
 
 Close with: “The AI decides the category; trusted local code handles the secret; the user controls the
 final disclosure.”
@@ -147,6 +151,20 @@ Perform this sequence before every run:
 
 The release gate requires two consecutive clean runs on each form without code edits.
 
+## Optional 60-second external-form proof
+
+Use this only after the exact external checklist has passed on the presentation laptop.
+
+1. Open a team-controlled HTTPS native form that is not part of this repository.
+2. Open the popup and show **Ready to scan this tab** before selecting **Scan**.
+3. Show **Standard form detected**, the four compatibility counts, exact minimized JSON and zero matches.
+4. Fill using fictional data and show the unrelated second tab remains untouched.
+5. Open one of the three verified team-created Google Forms. Show **Google Forms experimental** and the
+   unsupported count; do not attempt a custom widget, upload or automatic section change.
+
+Say: “External access is temporary and user-triggered. The planner receives no page URL, account identity
+or current values. Unknown and unsupported controls remain manual.”
+
 ## Recovery paths
 
 | Symptom | Say | Recovery |
@@ -155,6 +173,8 @@ The release gate requires two consecutive clean runs on each form without code e
 | Popup says profile missing | “Values are session-only by design.” | Open profile, **Use fictional demo profile**, save, return and scan |
 | Extension not responding | “We will reload the locally built package.” | `npm run build:extension`, reload at `chrome://extensions`, refresh form |
 | Stale-plan rejection | “The page changed after planning, so local validation rejected the old plan.” | Refresh or reset, then scan and plan again |
+| Unsupported browser page | “Chrome does not grant form access on protected pages.” | Open a normal HTTP/HTTPS form, reopen the popup and scan |
+| Google control is unsupported | “The experimental adapter fails closed on unverified widgets.” | Complete that question/section manually, then scan the next section |
 | Remote mode fails | “Remote output is not trusted; the backend is designed to fall back.” | Confirm fallback result or restart with `PLANNER_MODE=fallback` |
 | Critical prompt dismissed | “Critical disclosure needs a positive decision.” | Select Fill again and approve only for fictional data |
 | Browser demo cannot recover within 30 seconds | “Here is the same release flow recorded after the full gate.” | Play the backup recording, then answer from architecture/test evidence |
@@ -182,6 +202,10 @@ request, contract checks, fallback, audit and submission boundary directly inspe
 
 **Can a website read a filled value?** Yes, after approved insertion the destination page can access its
 own DOM. The protected boundary is planning, not intentional disclosure to the chosen destination.
+
+**Does it work on every website or Google Form?** No. The release supports tested native controls with
+usable accessible metadata and an experimental Google Forms subset. Custom widgets, uploads, CAPTCHA,
+cross-origin frames and automatic section navigation remain unsupported and are reported for manual work.
 
 **Is session storage encrypted?** The MVP makes no such claim. It uses temporary extension session
 storage; production would require stronger platform-backed protection and lifecycle controls.

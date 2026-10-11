@@ -3,9 +3,19 @@ import { ActionValidationError, validateActionPlan } from "./core/action-validat
 import { executeValidatedActions } from "./core/action-executor.js";
 import { createAuditEntry } from "./core/audit-log.js";
 import { createSafeScanResult, scanDocument } from "./core/field-scanner.js";
+import { isExternalPageLocation } from "./core/label-sanitizer.js";
 import { armSubmissionGuard } from "./ui/confirmation-overlay.js";
+import { createLocalVisualSnapshot } from "./vision/dom-region-mapper.js";
 
 let currentScan = null;
+const INSTALLATION_MARKER = "__privacyFillContentScriptV1";
+
+function scanCurrentPage() {
+  return scanDocument(document, {
+    externalPage: isExternalPageLocation(globalThis.location),
+    locationLike: globalThis.location,
+  });
+}
 
 function success(data) {
   return { ok: true, data, error: null };
@@ -33,9 +43,12 @@ function recordDeferredAudit(entry) {
 
 async function handleContentMessage(message) {
   switch (message?.type) {
+    case MESSAGE_TYPES.PING_CONTENT_SCRIPT:
+      return success({ ready: true, version: 1 });
+
     case MESSAGE_TYPES.SCAN_FORM:
       try {
-        currentScan = scanDocument(document);
+        currentScan = scanCurrentPage();
         if (currentScan.fields.length === 0) {
           return failure("NO_SUPPORTED_FIELDS", "No supported application fields were found on this page.");
         }
@@ -45,9 +58,27 @@ async function handleContentMessage(message) {
         return failure("SCAN_FAILED", "The form could not be scanned safely.");
       }
 
+    case MESSAGE_TYPES.ANALYZE_SCREEN_REGIONS:
+      try {
+        const width = Number(message.payload?.screenshotSize?.width);
+        const height = Number(message.payload?.screenshotSize?.height);
+        if (!Number.isInteger(width) || !Number.isInteger(height)
+          || width < 1 || height < 1 || width > 32768 || height > 32768) {
+          return failure("SCREEN_SIZE_INVALID", "The visible-tab capture dimensions were rejected.");
+        }
+        currentScan = scanCurrentPage();
+        return success(createLocalVisualSnapshot(currentScan, {
+          windowLike: globalThis,
+          screenshotSize: { width, height },
+        }));
+      } catch {
+        currentScan = null;
+        return failure("SCREEN_REGION_MAPPING_FAILED", "Visible page regions could not be mapped safely.");
+      }
+
     case MESSAGE_TYPES.VALIDATE_AND_EXECUTE:
       try {
-        const freshScan = scanDocument(document);
+        const freshScan = scanCurrentPage();
         const validated = validateActionPlan({
           plan: message.payload?.plan,
           request: message.payload?.request,
@@ -70,7 +101,7 @@ async function handleContentMessage(message) {
           criticalCategories,
           onAudit: recordDeferredAudit,
         });
-        const result = executeValidatedActions({
+        const result = await executeValidatedActions({
           actions: validated.actions,
           scan: freshScan,
           profileValues: message.payload?.profileValues ?? {},
@@ -108,7 +139,15 @@ async function handleContentMessage(message) {
     }
 }
 
-chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-  handleContentMessage(message).then(sendResponse);
-  return true;
-});
+if (!globalThis[INSTALLATION_MARKER]) {
+  Object.defineProperty(globalThis, INSTALLATION_MARKER, {
+    value: true,
+    configurable: false,
+    enumerable: false,
+    writable: false,
+  });
+  chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+    handleContentMessage(message).then(sendResponse);
+    return true;
+  });
+}

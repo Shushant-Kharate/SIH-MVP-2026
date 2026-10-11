@@ -1,4 +1,5 @@
-import { cp, mkdir, readFile, readdir, rm } from "node:fs/promises";
+import { cp, mkdir, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -24,6 +25,30 @@ async function copyStaticFiles() {
       return !source.endsWith(".js");
     },
   });
+}
+
+async function copyPackagedOcrAssets() {
+  const manifestPath = path.join(sourceRoot, "vendor", "tesseract-assets.json");
+  const assetManifest = JSON.parse(await readFile(manifestPath, "utf8"));
+  const vendorRoot = path.join(outputRoot, "vendor", "tesseract");
+  for (const asset of assetManifest.assets) {
+    const source = path.join(repositoryRoot, "node_modules", ...asset.source.split("/"));
+    const target = path.join(vendorRoot, ...asset.target.split("/"));
+    const contents = await readFile(source);
+    const digest = createHash("sha256").update(contents).digest("hex");
+    const sourceStat = await stat(source);
+    if (digest !== asset.sha256 || sourceStat.size !== asset.bytes) {
+      throw new Error(`Packaged OCR asset verification failed: ${asset.source}`);
+    }
+    await mkdir(path.dirname(target), { recursive: true });
+    await writeFile(target, contents);
+  }
+  await cp(manifestPath, path.join(vendorRoot, "ASSET_MANIFEST.json"));
+  const licenseRoot = path.join(vendorRoot, "licenses");
+  await mkdir(licenseRoot, { recursive: true });
+  await cp(path.join(repositoryRoot, "node_modules", "tesseract.js", "LICENSE.md"), path.join(licenseRoot, "tesseract.js-Apache-2.0.txt"));
+  await cp(path.join(repositoryRoot, "node_modules", "tesseract.js-core", "LICENSE"), path.join(licenseRoot, "tesseract.js-core-Apache-2.0.txt"));
+  await cp(path.join(repositoryRoot, "node_modules", "@tesseract.js-data", "eng", "package.json"), path.join(licenseRoot, "tesseract-eng-package-metadata.json"));
 }
 
 async function listFiles(directory) {
@@ -61,12 +86,14 @@ assertSafeOutputPath(outputRoot);
 await rm(outputRoot, { recursive: true, force: true });
 await mkdir(path.join(outputRoot, "pages"), { recursive: true });
 await copyStaticFiles();
+await copyPackagedOcrAssets();
 
 await build({
   entryPoints: {
     background: path.join(sourceRoot, "src", "background.js"),
     "pages/popup": path.join(sourceRoot, "src", "popup.js"),
     "pages/profile": path.join(sourceRoot, "src", "profile.js"),
+    "pages/inspector": path.join(sourceRoot, "src", "inspector.js"),
   },
   bundle: true,
   entryNames: "[dir]/[name]",

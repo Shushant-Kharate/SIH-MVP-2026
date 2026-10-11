@@ -40,6 +40,10 @@ describe("shared constants", () => {
 
   it("defines the cross-component message names", () => {
     assert.equal(MESSAGE_TYPES.PLAN_REQUEST, "PLAN_REQUEST");
+    assert.equal(MESSAGE_TYPES.PING_CONTENT_SCRIPT, "PING_CONTENT_SCRIPT");
+    assert.equal(MESSAGE_TYPES.ANALYZE_SCREEN_REGIONS, "ANALYZE_SCREEN_REGIONS");
+    assert.equal(MESSAGE_TYPES.VISUAL_SESSION_TAKE, "VISUAL_SESSION_TAKE");
+    assert.equal(MESSAGE_TYPES.VISUAL_PRIVACY_CHECK, "VISUAL_PRIVACY_CHECK");
     assert.equal(MESSAGE_TYPES.ARM_SUBMISSION_GUARD, "ARM_SUBMISSION_GUARD");
   });
 });

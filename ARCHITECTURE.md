@@ -12,7 +12,7 @@ category to the session's actual email address.
 ```mermaid
 flowchart TB
     subgraph U[Untrusted page]
-        DOM[Local demo DOM]
+        DOM[User-selected HTTP/S page DOM]
     end
 
     subgraph T[Trusted Chrome extension]
@@ -49,7 +49,7 @@ flowchart TB
     GUARD -->|one explicit submit attempt| DOM
 ```
 
-The page is untrusted even though the MVP serves it locally. The extension trusts its own packaged code
+Every destination page is untrusted, including the controlled localhost demos. The extension trusts its own packaged code
 and temporary session storage. The Node.js server and any remote planner are intentionally treated as
 unable to receive raw profile values.
 
@@ -59,7 +59,8 @@ unable to receive raw profile values.
 | --- | --- | --- | --- |
 | Profile page | Extension page | Validate and save seven fictional profile categories | API credentials |
 | Session profile store | Extension service worker | Keep normalized values in `chrome.storage.session` | Persistent production secrets |
-| Content scanner | Extension isolated world | Discover supported controls and build an in-memory field registry | Existing field values, page HTML, screenshots |
+| Eligibility/injector | Extension popup | Validate the selected top-level HTTP/S tab and inject packaged scanner code only after a user click | Browser history, unselected tabs, child-frame contents |
+| Content scanner and adapters | Extension isolated world | Discover supported native controls and build an in-memory field registry | Existing field values, page HTML, screenshots, account/page-wide text |
 | PII classifier | Extension | Map safe labels/types to a supported profile category and risk | Profile values |
 | Sanitizer and leak checker | Extension service worker | Construct the strict request and search it for protected-value variants | Unchecked outbound data |
 | Popup | Extension page | Drive scan, inspect exact checked JSON, plan/fill and audit | Displaying saved values |
@@ -75,25 +76,31 @@ unable to receive raw profile values.
 
 1. The user saves only fictional values. Validation normalizes them and stores them in
    `chrome.storage.session`; the popup receives readiness and category counts, not values.
-2. The content script scans the active localhost demo page. It derives labels from explicit labels,
-   wrapping labels, ARIA metadata, placeholders and safe names; current control values are excluded.
-3. The scanner assigns anonymous field and form IDs and calculates a value-independent snapshot ID.
-4. The classifier suggests a `PROFILE.*` category and risk. Password/OTP-like fields become
+2. Invoking the toolbar popup gives Chrome's temporary `activeTab` grant for the selected tab, but performs
+   no scan. Only a later user click on **Scan** starts top-frame injection of the packaged, idempotent content
+   scanner. Browser pages, stores, local files and non-HTTP(S) schemes fail before injection.
+3. The generic adapter or tested Google Forms adapter discovers supported native controls. Bounded labels
+   come from explicit/wrapping labels, ARIA references, fieldset legends, narrow question headings,
+   placeholders or safe names—never page-wide text or current values.
+4. External-page metadata is canonicalized and private-looking label/option content is redacted or omitted.
+   The scanner assigns anonymous field/form IDs and a value-independent snapshot ID. Hostname, URL, title,
+   account identity and adapter status remain local UI metadata.
+5. The classifier suggests a `PROFILE.*` category and risk. Password/OTP-like fields become
    `UNKNOWN_SENSITIVE` and cannot be filled.
-5. The background sanitizer creates a strict `PlanningRequest`. Only category names, anonymous IDs,
+6. The background sanitizer creates a strict `PlanningRequest`. Only category names, anonymous IDs,
    safe labels/types/options and required/risk metadata are included.
-6. The leak checker serializes the exact request and compares it with exact and normalized variants of
+7. The leak checker serializes the exact request and compares it with exact and normalized variants of
    every saved profile value. A match blocks the request before HTTP.
-7. `POST /api/plan` rejects malformed, oversized or unknown properties. The fallback or optional remote
+8. `POST /api/plan` rejects malformed, oversized or unknown properties. The fallback or optional remote
    planner returns a strict `PlanningResponse` containing allowlisted typed actions.
-8. The extension validates the response contract, request ID and snapshot ID, then leak-checks the
+9. The extension validates the response contract, request ID and snapshot ID, then leak-checks the
    response as a second privacy boundary.
-9. Immediately before execution, the content script rescans the page. It rejects stale snapshots,
+10. Immediately before execution, the content script rescans the page. It rejects stale snapshots,
    missing/disabled/readonly/incompatible targets, unknown actions, unavailable categories and critical
    fills without approval.
-10. Only approved `fill_private` actions resolve a category through the local session profile. The executor
+11. Only approved `fill_private` actions resolve a category through the local session profile. The executor
     writes the value to the registered DOM element and dispatches `input` and `change` events.
-11. Metadata-only audit entries are stored locally. The guard intercepts the next submission and permits
+12. Metadata-only audit entries are stored locally. The guard intercepts the next normal form submission and permits
     exactly one attempt only after **Submit once**.
 
 ## Planning request contract (version 1)
@@ -161,6 +168,7 @@ All runtime operations use allowlisted message names from `shared/message-types.
 
 | Message | Direction | Result |
 | --- | --- | --- |
+| `PING_CONTENT_SCRIPT` | Popup → selected top-frame content script | Confirm packaged scanner readiness before/after injection |
 | `PROFILE_SAVE`, `PROFILE_CLEAR`, `PROFILE_GET_STATUS` | Profile/popup → service worker | Manage or summarize temporary profile state |
 | `SCAN_FORM` | Popup → content script | Return sanitized scan metadata |
 | `GET_SANITIZED_PAYLOAD` | Popup → service worker | Return exact checked request plus zero-match summary |
@@ -176,6 +184,8 @@ exception or provider output.
 ## Failure and fallback behavior
 
 - No saved profile, no supported fields or an invalid scan stops before planning.
+- A tab navigation, reload, switch or material form mutation invalidates the old scan and requires rescan.
+- Unsupported Google Forms widgets are counted and left for manual completion; section movement is manual.
 - Any protected-value match returns `PRIVACY_LEAK_BLOCKED`; no request is sent.
 - Invalid JSON, over-32 KB payloads, bad origin, rate limits and contract errors are rejected by the API.
 - Remote timeout, network error or rejected output triggers a validated deterministic fallback plan.
@@ -185,7 +195,12 @@ exception or provider output.
 
 ## Deployment boundary
 
-This is a localhost-only hackathon artifact. Manifest host access is limited to
-`http://localhost:8787/*`, the server binds to `127.0.0.1`, and controlled demo submissions are handled
-locally. Supporting arbitrary sites would require a separate permissions, content-security, classifier,
-compatibility and adversarial-page review.
+The planner API and controlled demonstrations remain local: the server binds to `127.0.0.1` and the only
+persistent manifest host permission is `http://localhost:8787/*`. Normal web-form access uses temporary
+`activeTab` authorization after the user invokes the extension; there is no `<all_urls>`, broad HTTPS host
+permission or all-sites static content script.
+
+Release scope is deliberately narrower than “any form”: tested native HTML controls on user-selected
+top-level HTTP/HTTPS pages, plus an experimental Google Forms subset. Cross-origin frames, browser pages,
+local files, custom ARIA widgets, CAPTCHA, uploads and automated section navigation fail closed or require
+manual completion. Live external compatibility remains a Chrome checklist item, not an automated claim.

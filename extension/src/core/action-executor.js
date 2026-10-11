@@ -34,7 +34,25 @@ function prepareElement(element) {
   element.focus?.({ preventScroll: true });
 }
 
-function executeAction(action, element, profileValues) {
+function isConnected(element) {
+  if (!element || element.isConnected === false) return false;
+  return element.ownerDocument?.documentElement?.contains?.(element) !== false;
+}
+
+function requireLiveElement(element) {
+  if (!isConnected(element)) throw new Error("TARGET_REPLACED");
+}
+
+async function settleFrameworkUpdates(element) {
+  // React-style handlers are commonly synchronous while Vue and similar controlled-field updates may
+  // flush in a microtask. Two checkpoints let both the event handler and its queued state update settle.
+  await Promise.resolve();
+  await Promise.resolve();
+  requireLiveElement(element);
+}
+
+async function executeAction(action, element, profileValues) {
+  requireLiveElement(element);
   prepareElement(element);
 
   switch (action.action) {
@@ -43,6 +61,7 @@ function executeAction(action, element, profileValues) {
       if (typeof value !== "string" || value.length === 0) throw new Error("PROFILE_VALUE_MISSING");
       setNativeProperty(element, "value", value);
       dispatchEditEvents(element);
+      await settleFrameworkUpdates(element);
       if (element.value !== value) throw new Error("VALUE_VERIFICATION_FAILED");
       break;
     }
@@ -59,6 +78,7 @@ function executeAction(action, element, profileValues) {
       if (selectSetter) selectSetter.call(element, option.value);
       option.selected = true;
       dispatchEditEvents(element);
+      await settleFrameworkUpdates(element);
       if (!option.selected || option.textContent.trim() !== action.value) {
         throw new Error("SELECT_VERIFICATION_FAILED");
       }
@@ -67,6 +87,7 @@ function executeAction(action, element, profileValues) {
     case ACTION_TYPES.CHECK:
       setNativeProperty(element, "checked", action.checked);
       dispatchEditEvents(element);
+      await settleFrameworkUpdates(element);
       if (element.checked !== action.checked) throw new Error("CHECK_VERIFICATION_FAILED");
       break;
     case ACTION_TYPES.FOCUS:
@@ -76,7 +97,12 @@ function executeAction(action, element, profileValues) {
   }
 }
 
-export function executeValidatedActions({ actions, scan, profileValues, now = performance.now.bind(performance) }) {
+export async function executeValidatedActions({
+  actions,
+  scan,
+  profileValues,
+  now = performance.now.bind(performance),
+}) {
   const auditEntries = [];
   let filledCount = 0;
 
@@ -85,7 +111,7 @@ export function executeValidatedActions({ actions, scan, profileValues, now = pe
     const startedAt = now();
 
     try {
-      executeAction(action, element, profileValues);
+      await executeAction(action, element, profileValues);
       highlight(element, "success");
       if (action.action !== ACTION_TYPES.FOCUS) filledCount += 1;
       auditEntries.push(createAuditEntry({

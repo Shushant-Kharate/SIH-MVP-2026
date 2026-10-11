@@ -25,11 +25,83 @@ body {
 
 .status-card,
 .action-card,
+.access-card,
+.compatibility-card,
 .privacy-card {
   border: 1px solid var(--line);
   border-radius: 17px;
   background: rgb(255 255 255 / 92%);
   box-shadow: var(--shadow);
+}
+
+.access-card {
+  display: grid;
+  grid-template-columns: 12px 1fr;
+  align-items: start;
+  gap: 11px;
+  margin-top: 12px;
+  padding: 13px 14px;
+  box-shadow: none;
+}
+
+.access-icon {
+  width: 10px;
+  height: 10px;
+  margin-top: 5px;
+  border-radius: 50%;
+  background: #a4adbd;
+  box-shadow: 0 0 0 4px rgb(164 173 189 / 14%);
+}
+
+.access-card[data-state="ready"] {
+  border-color: #b9e8d5;
+  background: #f4fcf8;
+}
+
+.access-card[data-state="ready"] .access-icon {
+  background: #1d936a;
+  box-shadow: 0 0 0 4px rgb(29 147 106 / 14%);
+}
+
+.access-card[data-state="unsupported"],
+.access-card[data-state="unavailable"] {
+  border-color: #f0d898;
+  background: var(--warning-bg);
+}
+
+.access-card[data-state="unsupported"] .access-icon,
+.access-card[data-state="unavailable"] .access-icon {
+  background: #c08320;
+  box-shadow: 0 0 0 4px rgb(192 131 32 / 14%);
+}
+
+.card-eyebrow {
+  margin: 0 0 3px;
+  color: var(--muted);
+  font-size: 0.6rem;
+  font-weight: 850;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.access-card h2,
+.access-card p,
+.compatibility-card h2,
+.compatibility-card p {
+  margin-top: 0;
+}
+
+.access-card h2,
+.compatibility-card h2 {
+  margin-bottom: 3px;
+  font-size: 0.83rem;
+}
+
+.access-card p:last-child {
+  margin-bottom: 0;
+  color: var(--muted);
+  font-size: 0.7rem;
+  line-height: 1.45;
 }
 
 .status-card {
@@ -81,6 +153,62 @@ body {
   display: grid;
   gap: 10px;
   margin-top: 14px;
+}
+
+.visual-workflow {
+  margin-top: 14px;
+}
+
+.action-card--visual {
+  border-color: #b8c7f5;
+  background: linear-gradient(135deg, #f6f8ff, #eef3ff);
+}
+
+.visual-capture-panel {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px 12px;
+  margin-top: 10px;
+  border: 1px solid #b8c7f5;
+  border-radius: 13px;
+  padding: 11px 12px;
+  background: #f4f7ff;
+}
+
+.visual-capture-panel strong,
+.visual-capture-panel span {
+  display: block;
+}
+
+.visual-capture-panel strong {
+  font-size: 0.72rem;
+}
+
+.visual-capture-panel span,
+.visual-capture-panel p {
+  color: var(--muted);
+  font-size: 0.64rem;
+  line-height: 1.4;
+}
+
+.visual-capture-panel span {
+  margin-top: 3px;
+}
+
+.visual-capture-panel p {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
+.visual-capture-panel button {
+  align-self: start;
+  border: 0;
+  border-radius: 8px;
+  padding: 6px 8px;
+  color: var(--danger);
+  background: var(--danger-bg);
+  font-size: 0.61rem;
+  font-weight: 780;
 }
 
 .action-card {
@@ -186,6 +314,98 @@ body {
 .scan-result[data-tone="error"] {
   color: var(--danger);
   background: var(--danger-bg);
+}
+
+.scan-result[data-tone="warning"] {
+  color: var(--warning);
+  background: var(--warning-bg);
+}
+
+.compatibility-card {
+  margin-top: 12px;
+  padding: 13px;
+  box-shadow: none;
+}
+
+.compatibility-card[data-state="supported"] {
+  border-color: #b9e8d5;
+  background: #f4fcf8;
+}
+
+.compatibility-card[data-state="experimental"],
+.compatibility-card[data-state="manual"],
+.compatibility-card[data-state="empty"] {
+  border-color: #f0d898;
+  background: #fffaf0;
+}
+
+.compatibility-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.compatibility-badge {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  padding: 5px 7px;
+  color: var(--good);
+  background: var(--good-bg);
+  font-size: 0.58rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.compatibility-card[data-state="experimental"] .compatibility-badge,
+.compatibility-card[data-state="manual"] .compatibility-badge,
+.compatibility-card[data-state="empty"] .compatibility-badge {
+  color: var(--warning);
+  background: var(--warning-bg);
+}
+
+.compatibility-copy,
+.compatibility-note {
+  color: var(--muted);
+  font-size: 0.68rem;
+  line-height: 1.45;
+}
+
+.compatibility-copy {
+  margin-bottom: 10px;
+}
+
+.compatibility-note {
+  margin-bottom: 0;
+}
+
+.metric-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  margin: 0 0 9px;
+}
+
+.metric-grid div {
+  border: 1px solid rgb(115 134 168 / 18%);
+  border-radius: 9px;
+  padding: 7px 4px;
+  text-align: center;
+  background: rgb(255 255 255 / 68%);
+}
+
+.metric-grid dt {
+  color: var(--muted);
+  font-size: 0.55rem;
+  font-weight: 750;
+  text-transform: uppercase;
+}
+
+.metric-grid dd {
+  margin: 2px 0 0;
+  color: var(--ink);
+  font-size: 0.88rem;
+  font-weight: 850;
 }
 
 .payload-panel {

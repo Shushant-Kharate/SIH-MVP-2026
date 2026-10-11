@@ -1,5 +1,7 @@
 import { CONTRACT_LIMITS } from "../../../shared/contracts.js";
+import { selectFormAdapter } from "../adapters/adapter-registry.js";
 import { classifyFieldMetadata } from "./pii-classifier.js";
+import { minimizeExternalLabel, minimizeExternalOptions } from "./label-sanitizer.js";
 import { createSnapshotId } from "./snapshot.js";
 
 const IGNORED_INPUT_TYPES = new Set(["button", "file", "hidden", "image", "reset", "submit"]);
@@ -15,40 +17,8 @@ function limitText(value, maximum = CONTRACT_LIMITS.MAX_LABEL_LENGTH) {
   return normalizeWhitespace(value).slice(0, maximum);
 }
 
-function textFromElement(element) {
-  return limitText(element?.textContent ?? "");
-}
-
-function getExplicitLabel(element, document) {
-  const id = element.getAttribute("id");
-  if (!id) return "";
-
-  for (const label of document.querySelectorAll("label[for]")) {
-    if (label.getAttribute("for") === id) return textFromElement(label);
-  }
-  return "";
-}
-
-function getWrappingLabel(element) {
-  return textFromElement(element.closest("label"));
-}
-
-function getAriaLabelledBy(element, document) {
-  const ids = normalizeWhitespace(element.getAttribute("aria-labelledby")).split(" ").filter(Boolean);
-  return limitText(ids.map((id) => textFromElement(document.getElementById(id))).filter(Boolean).join(" "));
-}
-
 export function deriveFieldLabel(element, document = element.ownerDocument) {
-  const candidates = [
-    getExplicitLabel(element, document),
-    getWrappingLabel(element),
-    limitText(element.getAttribute("aria-label")),
-    getAriaLabelledBy(element, document),
-    limitText(element.getAttribute("placeholder")),
-    limitText(element.getAttribute("name")),
-    limitText(element.getAttribute("id")),
-  ];
-  return candidates.find(Boolean) ?? "Unlabelled field";
+  return selectFormAdapter(document).deriveLabel(element, document);
 }
 
 function isSemanticallyVisible(element) {
@@ -91,52 +61,64 @@ function getSafeOptions(element) {
     .slice(0, CONTRACT_LIMITS.MAX_OPTIONS_PER_FIELD);
 }
 
-function formIdFor(element, formIds) {
-  const form = element.closest("form");
+function formIdFor(element, formIds, adapter) {
+  const form = adapter.getFormContainer(element);
   if (!form) return "FORM_0";
   if (!formIds.has(form)) formIds.set(form, `FORM_${formIds.size + 1}`);
   return formIds.get(form);
 }
 
-function buildFieldEntry(element, index, formIds, document) {
+function buildFieldEntry(element, index, formIds, document, externalPage, adapter) {
   const tag = element.tagName.toLowerCase();
-  const metadata = {
+  const rawMetadata = {
     fieldId: `FIELD_${index + 1}`,
-    formId: formIdFor(element, formIds),
+    formId: formIdFor(element, formIds, adapter),
     tag,
     type: getControlType(element),
-    label: deriveFieldLabel(element, document),
+    label: adapter.deriveLabel(element, document),
     name: limitText(element.getAttribute("name")),
     id: limitText(element.getAttribute("id")),
     placeholder: limitText(element.getAttribute("placeholder")),
     autocomplete: limitText(element.getAttribute("autocomplete")),
-    required: element.required === true || element.getAttribute("aria-required") === "true",
+    required: adapter.deriveRequired(element, document),
     disabled: element.disabled === true,
     readonly: element.readOnly === true || element.hasAttribute("readonly"),
     options: getSafeOptions(element),
   };
+  const classification = classifyFieldMetadata(rawMetadata);
+  const metadata = externalPage
+    ? {
+        ...rawMetadata,
+        label: minimizeExternalLabel(rawMetadata.label, classification.category),
+        options: minimizeExternalOptions(rawMetadata.options),
+      }
+    : rawMetadata;
 
   return {
     ...metadata,
-    classification: classifyFieldMetadata(metadata),
+    classification,
   };
 }
 
-export function scanDocument(document) {
+export function scanDocument(document, { externalPage = false, locationLike } = {}) {
   if (!document?.querySelectorAll) throw new TypeError("A DOM document is required.");
 
-  const candidates = Array.from(document.querySelectorAll("input, select, textarea"))
+  const adapter = selectFormAdapter(document, locationLike);
+  const candidates = adapter.findControls(document)
     .filter(isSupportedElement)
     .slice(0, CONTRACT_LIMITS.MAX_FIELDS);
   const formIds = new Map();
   const elementByFieldId = new Map();
   const fields = candidates.map((element, index) => {
-    const field = buildFieldEntry(element, index, formIds, document);
+    const field = buildFieldEntry(element, index, formIds, document, externalPage, adapter);
     elementByFieldId.set(field.fieldId, element);
     return field;
   });
 
   return {
+    adapterId: adapter.id,
+    privacyMode: externalPage ? "external" : "controlled",
+    unsupportedControlCount: adapter.getUnsupportedControlCount(document),
     snapshotId: createSnapshotId(fields),
     fields,
     elementByFieldId,
@@ -160,6 +142,11 @@ export function createSafeScanResult(scan) {
   }));
 
   return {
+    adapterId: scan.adapterId ?? "generic",
+    privacyMode: scan.privacyMode === "external" ? "external" : "controlled",
+    unsupportedControlCount: Number.isInteger(scan.unsupportedControlCount)
+      ? Math.max(0, scan.unsupportedControlCount)
+      : 0,
     snapshotId: scan.snapshotId,
     fieldCount: fields.length,
     privateFieldCount: fields.filter((field) => field.suggestedProfileKey?.startsWith("PROFILE.")).length,

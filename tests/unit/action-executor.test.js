@@ -53,7 +53,7 @@ describe("local action executor", () => {
     let inputEvents = 0;
     scenario.document.querySelector("form").addEventListener("input", () => { inputEvents += 1; });
 
-    const result = executeValidatedActions({
+    const result = await executeValidatedActions({
       actions: validated.actions,
       scan: scenario.scan,
       profileValues: FAKE_PROFILE,
@@ -92,7 +92,7 @@ describe("local action executor", () => {
       criticalApproved: true,
     });
 
-    const result = executeValidatedActions({
+    const result = await executeValidatedActions({
       actions: validated.actions,
       scan: scenario.scan,
       profileValues: FAKE_PROFILE,
@@ -112,7 +112,7 @@ describe("local action executor", () => {
       target: "FIELD_1",
       profileKey: scenario.request.fields[0].suggestedProfileKey,
     };
-    const result = executeValidatedActions({
+    const result = await executeValidatedActions({
       actions: [action],
       scan: scenario.scan,
       profileValues: {},

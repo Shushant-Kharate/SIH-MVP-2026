@@ -10,7 +10,7 @@ on the presentation laptop. Use only the fictional profile in `tests/fixtures/fa
 | Date prepared | 2026-08-26 |
 | Branch | `codex/mvp-implementation` |
 | Automated command | `npm run verify` |
-| Automated result | PASS — 120 tests at preparation time |
+| Automated result | PASS — 171 functional, 79 privacy, static/secret/docs gates on 2026-08-26 |
 | Manual Chrome operator | _Not yet assigned_ |
 | Chrome version | _Not yet recorded_ |
 | Built extension path | `dist/extension` |
@@ -26,7 +26,7 @@ Result vocabulary:
 
 | ID | Scenario | Operator procedure | Expected result | Automated evidence | Manual result |
 | --- | --- | --- | --- | --- | --- |
-| A01 | Fresh install with no profile | Clear the extension session, open the popup on Form A. | Popup says a local profile is required; Inspect and Fill remain disabled. | `profile-store.test.js`, `extension-manifest.test.js` — AUTOMATED PASS | MANUAL PENDING |
+| A01 | Fresh install with no profile | Clear the extension session, open the popup on Form A. | Popup says a local profile is required. Scan remains available for compatibility checking; Inspect and Fill remain disabled. | `profile-store.test.js`, `extension-manifest.test.js`, `popup-view-model.test.js` — AUTOMATED PASS | MANUAL PENDING |
 | A02 | Invalid profile formats | Enter an invalid email, short phone, malformed Aadhaar and PAN, then save. | Save is rejected with field-safe errors and no values in status text or logs. | `profile-validation.test.js`, `profile-store.test.js` — AUTOMATED PASS | MANUAL PENDING |
 | A03 | Form A happy path | Save the fictional profile, scan Scholarship, inspect payload, plan and fill. | Six intended private fields fill; zero outbound matches; Aadhaar approval appears; fields highlight. | `release-flow.test.js` runs twice — AUTOMATED PASS | MANUAL PENDING |
 | A04 | Form B happy path | Reset, open Citizen Service, scan, inspect, plan and fill. | Five supported fields fill; PAN approval appears; OTP stays empty. | `release-flow.test.js` runs twice — AUTOMATED PASS | MANUAL PENDING |
@@ -54,3 +54,5 @@ Result vocabulary:
 
 Do not mark the release candidate ready until A01–A13 all show `MANUAL PASS` on the presentation
 laptop for the current commit. Record defects beside the failed row and rerun `npm run verify` after fixes.
+External-site claims additionally require X01–X13 in `tests/manual/external-page-checklist.md`; completing
+this controlled checklist alone is not evidence of live Google Forms or arbitrary-site compatibility.

@@ -68,6 +68,44 @@ describe("DOM field scanner", () => {
     assert.equal(fieldByName(scan, "preferredAppointmentDate").classification.category, null);
   });
 
+  it("discovers bounded question headings in Google Forms-like markup", async () => {
+    const document = await loadDemoDocument("../tests/fixtures/google-form-like.html");
+    const scan = scanDocument(document);
+
+    assert.equal(fieldByName(scan, "entry.1001").label, "Applicant full name");
+    assert.equal(fieldByName(scan, "entry.1002").label, "Primary mobile number");
+    assert.equal(fieldByName(scan, "entry.1003").label, "Permanent residential address");
+    assert.equal(fieldByName(scan, "entry.1004").label, "Email address");
+    assert.equal(fieldByName(scan, "entry.1005").label, "Applicant category");
+    assert.equal(fieldByName(scan, "entry.1001").classification.category, PROFILE_KEYS.NAME);
+    assert.equal(fieldByName(scan, "entry.1002").classification.category, PROFILE_KEYS.PHONE);
+    assert.equal(fieldByName(scan, "entry.1003").classification.category, PROFILE_KEYS.ADDRESS);
+    assert.equal(fieldByName(scan, "entry.1004").classification.category, PROFILE_KEYS.EMAIL);
+    assert.equal(JSON.stringify(createSafeScanResult(scan)).includes("private-account@example.test"), false);
+    assert.equal(JSON.stringify(createSafeScanResult(scan)).includes("9000000000"), false);
+  });
+
+  it("uses the Google adapter only for its conservative native-control subset", async () => {
+    const document = await loadDemoDocument("../tests/fixtures/google-form-like.html");
+    const safe = createSafeScanResult(scanDocument(document, {
+      externalPage: true,
+      locationLike: {
+        protocol: "https:",
+        hostname: "docs.google.com",
+        pathname: "/forms/d/e/example/viewform",
+      },
+    }));
+    const serialized = JSON.stringify(safe);
+
+    assert.equal(safe.adapterId, "google-forms-experimental");
+    assert.equal(safe.fieldCount, 4);
+    assert.equal(safe.privateFieldCount, 4);
+    assert.equal(safe.unsupportedControlCount, 3);
+    assert.equal(serialized.includes("docs.google.com"), false);
+    assert.equal(serialized.includes("private-account@example.test"), false);
+    assert.equal(serialized.includes("Supporting document"), false);
+  });
+
   it("ignores hidden, disabled, file, submit and extension-owned controls", () => {
     const { document } = parseHTML(`
       <form>
@@ -121,5 +159,25 @@ describe("DOM field scanner", () => {
     assert.equal(safe.blockedFieldCount, 1);
     assert.equal(Object.hasOwn(safe, "elementByFieldId"), false);
     assert.match(safe.snapshotId, /^snapshot-v1-[a-f0-9]{8}$/);
+  });
+
+  it("minimizes external labels before creating a snapshot", () => {
+    const { document } = parseHTML(`
+      <form>
+        <label>Email address private@example.test <input name="email" type="email"></label>
+        <label>Reference 9876543210 <input name="reference" type="text"></label>
+        <label>Region <select name="region"><option>Call 9876543210</option></select></label>
+      </form>
+    `);
+    const scan = scanDocument(document, { externalPage: true });
+    const safe = createSafeScanResult(scan);
+    const serialized = JSON.stringify(safe);
+
+    assert.equal(safe.privacyMode, "external");
+    assert.equal(scan.fields[0].label, "Email address");
+    assert.match(scan.fields[1].label, /\[redacted-number\]/);
+    assert.deepEqual(scan.fields[2].options, []);
+    assert.equal(serialized.includes("private@example.test"), false);
+    assert.equal(serialized.includes("9876543210"), false);
   });
 });

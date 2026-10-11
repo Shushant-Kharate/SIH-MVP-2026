@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<body>
+  <header>
+    <p>Signed in as unrelated-account@example.test</p>
+  </header>
+  <main>
+    <form aria-label="External application">
+      <section>
+        <label>
+          Mobile contact
+          <input name="contactPhone" type="tel" value="">
+        </label>
+      </section>
+
+      <section>
+        <span id="address-heading">Permanent residential address</span>
+        <textarea name="homeAddress" aria-labelledby="address-heading"></textarea>
+        <small>Include a nearby landmark if useful.</small>
+      </section>
+
+      <section>
+        <label for="applicant-name">Applicant full name</label>
+        <input id="applicant-name" name="legalName" type="text">
+      </section>
+
+      <section>
+        <input name="primaryEmail" type="email" placeholder="Email address">
+      </section>
+
+      <section>
+        <label>Date of birth <input name="birthDate" type="date"></label>
+      </section>
+
+      <section>
+        <input name="nationalIdentity" type="text" aria-label="Aadhaar number">
+      </section>
+
+      <section>
+        <label>PAN number <input name="panNumber" type="text"></label>
+      </section>
+
+      <section>
+        <label>One-time password <input name="verificationOtp" type="text"></label>
+      </section>
+
+      <button type="submit">Continue</button>
+    </form>
+  </main>
+</body>
+</html>
