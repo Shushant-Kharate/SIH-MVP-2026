@@ -1,64 +1,117 @@
-/* Force zero scrollability and full-screen chaos */
-html, body {
-    margin: 0;
-    padding: 0;
-    width: 100vw;
-    height: 100vh;
-    overflow: hidden !important;
-    background: #1a001a;
-    font-family: "Comic Sans MS", Impact, sans-serif;
+/* Deliberately unusual layout used to prove that scanning is position-independent. */
+html,
+body {
+  width: 100vw;
+  height: 100vh;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  background: #1a001a;
+  font-family: "Comic Sans MS", Impact, sans-serif;
 }
 
 form {
-    position: relative;
-    width: 100%;
-    height: 100%;
+  position: relative;
+  width: 100%;
+  height: 100%;
 }
 
-/* Scatter labels randomly across the screen with rotations */
 label {
-    position: absolute;
-    display: flex;
-    flex-direction: column;
-    color: #00ff00;
-    font-size: 11px;
-    font-weight: bold;
-    text-shadow: 2px 2px #ff00ff;
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  color: #00ff00;
+  font-size: 11px;
+  font-weight: bold;
+  text-shadow: 2px 2px #ff00ff;
 }
 
-/* Style the inputs to look completely broken and inverted */
-input, textarea {
-    background: #ffff00;
-    color: #ff0000;
-    border: 3px dashed #00ffff;
-    padding: 2px;
-    font-size: 14px;
-    outline: none;
+input,
+textarea {
+  padding: 2px;
+  border: 3px dashed #00ffff;
+  outline: none;
+  background: #ffff00;
+  color: #ff0000;
+  font-size: 14px;
 }
 
 textarea {
-    resize: none;
-    height: 40px;
-    width: 90px;
+  width: 90px;
+  height: 40px;
+  resize: none;
 }
 
-/* Extreme distortion coordinates for each field */
-label:nth-of-type(1) { top: 75%; left: 5%; transform: rotate(15deg); }
-label:nth-of-type(1) input { background: #ff00ff; color: white; width: 250px; }
+label:nth-of-type(1) {
+  top: 75%;
+  left: 5%;
+  transform: rotate(15deg);
+}
 
-label:nth-of-type(2) { top: 12%; left: 55%; transform: rotate(-25deg) scaleY(1.8); }
-label:nth-of-type(2) input { border-radius: 50px; width: 80px; }
+label:nth-of-type(1) input {
+  width: 250px;
+  background: #ff00ff;
+  color: white;
+}
 
-label:nth-of-type(3) { top: 45%; left: 35%; transform: rotate(45deg); font-size: 25px; }
-label:nth-of-type(3) input { transform: skewX(-30deg); width: 140px; }
+label:nth-of-type(2) {
+  top: 12%;
+  left: 55%;
+  transform: rotate(-25deg) scaleY(1.8);
+}
 
-label:nth-of-type(4) { top: 5%; left: 2%; transform: rotate(-5deg); }
-label:nth-of-type(4) textarea { width: 300px; height: 80px; background: black; color: lime; }
+label:nth-of-type(2) input {
+  width: 80px;
+  border-radius: 50px;
+}
 
-label:nth-of-type(5) { top: 80%; left: 60%; transform: rotate(-12deg) scale(0.8); }
-label:nth-of-type(5) input { border: 10px solid red; }
+label:nth-of-type(3) {
+  top: 45%;
+  left: 35%;
+  transform: rotate(45deg);
+  font-size: 25px;
+}
 
-label:nth-of-type(6) { top: 40%; left: 3%; transform: rotate(180deg); } /* Completely upside down */
-label:nth-of-type(6) input { width: 180px; }
+label:nth-of-type(3) input {
+  width: 140px;
+  transform: skewX(-30deg);
+}
 
-label:nth-of-type(7) { top: 65%; left: 45%; transform: rotate(-85deg); } /* Almost vertical */
+label:nth-of-type(4) {
+  top: 5%;
+  left: 2%;
+  transform: rotate(-5deg);
+}
+
+label:nth-of-type(4) textarea {
+  width: 300px;
+  height: 80px;
+  background: black;
+  color: lime;
+}
+
+label:nth-of-type(5) {
+  top: 80%;
+  left: 60%;
+  transform: rotate(-12deg) scale(0.8);
+}
+
+label:nth-of-type(5) input {
+  border: 10px solid red;
+}
+
+label:nth-of-type(6) {
+  top: 40%;
+  left: 3%;
+  transform: rotate(180deg);
+}
+
+label:nth-of-type(6) input {
+  width: 180px;
+}
+
+label:nth-of-type(7) {
+  top: 65%;
+  left: 45%;
+  transform: rotate(-85deg);
+}

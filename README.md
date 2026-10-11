@@ -1,191 +1,93 @@
-# PrivacyFill AI — SIH MVP 2026
+# PrivacyFill AI
 
-PrivacyFill AI is a privacy-preserving Chrome form-filling agent. An AI or deterministic planner receives only anonymous field metadata and typed profile references; real profile values stay inside the trusted browser extension and are resolved locally.
+### Fill forms faster. Keep personal data out of the planner.
 
-The core MVP was implemented incrementally according to [IMPLEMENTATION_PLAN.md](./IMPLEMENTATION_PLAN.md).
-The visual browser-agent extension is divided into ten guarded sections in
-[VISUAL_BROWSER_AGENT_IMPLEMENTATION_PLAN.md](./VISUAL_BROWSER_AGENT_IMPLEMENTATION_PLAN.md).
+**PrivacyFill AI** is our Smart India Hackathon MVP: a Chrome extension that helps people complete web forms while keeping their real profile values inside the browser. It scans a form, sends only minimized field descriptions and anonymous references to a planner, checks the proposed actions, and fills approved values locally. The user stays in control of sensitive fields and final submission.
+
+> **The idea:** the planner can decide *which profile field goes where* without seeing *what the profile value is*.
+
+## See it in action
+
+The repository includes two controlled demo forms—a scholarship application and a citizen-service registration—plus a local planning API. Use fictional data for the demo.
+
+## Requirements
+
+- Node.js 20 or newer and npm
+- A current Chromium-based browser (Chrome recommended)
+
+1. Install [Node.js 20+](https://nodejs.org/) and run `npm ci`.
+2. Start the demo server with `npm run server`. Visit [http://localhost:8787/demo/](http://localhost:8787/demo/).
+3. In another terminal, run `npm run build:extension`.
+4. Open `chrome://extensions` in Chrome, enable **Developer mode**, click **Load unpacked**, and select `dist/extension` from this repository.
+5. Open the extension's profile page. Choose **Use fictional demo profile**, then **Save to this session**.
+6. Open either demo form: [scholarship.html](./demo/scholarship.html) or [service-registration.html](./demo/service-registration.html). In the extension popup, choose **Scan**, inspect the exact privacy-checked payload, then choose **Plan and fill locally**.
+7. Approve any critical-identifier prompt, review the filled fields and privacy audit, and try submitting. The extension asks for a final **Submit once** confirmation.
+
+No API key is needed: the default planner is deterministic and runs on the local server. `GET /api/health` shows the active planner mode.
+
+## What the MVP does
+
+| Capability | How it works |
+| --- | --- |
+| On-demand form scanning | The user selects a tab; temporary `activeTab` access discovers eligible fields and blocks password/OTP-like targets. |
+| Private planning | A leak check gates an allowlisted request containing field IDs, minimized labels, types, and profile-key references—not raw profile values. The popup shows the exact JSON before sending it. |
+| Local execution | Planner actions are schema-validated against a fresh form snapshot; only then does the extension resolve session-held values and fill compatible fields. |
+| User control | Critical identifiers such as Aadhaar and PAN require explicit approval. A metadata-only audit records actions, and a review dialog guards submission with a one-use bypass. |
+| Wider form coverage | User-selected standard native HTML forms are supported on HTTP(S) pages. A Google Forms adapter supports a limited set of native text/date controls experimentally. |
+| Visual inspection research | A separate inspector path explores local screenshot redaction, coverage checks, OCR, and bounded visual reasoning. It is guarded and does not turn screenshots into an unrestricted planner input. |
 
 ## Architecture at a glance
 
 ```mermaid
 flowchart LR
-    P[User-selected untrusted HTTP/S page] -->|temporary activeTab access| E[Eligibility + on-demand scanner]
-    E -->|minimized labels, types, required state| S[Local classifier]
-    V[(Session profile values)] --> L[Local privacy engine]
-    S --> L
-    L -->|leak-checked anonymous JSON| B[Local planner backend]
-    B -->|typed actions: field ID + profile key| X[Local validator and executor]
-    V -->|resolve only after validation| X
-    X -->|input/change events| P
-    X --> C[Submission confirmation]
+  A[Selected web form] --> B[Extension scans fields]
+  B --> C[Minimize metadata + check for leaks]
+  C --> D[Local planner API]
+  D --> E[Typed field-to-profile-key actions]
+  E --> F[Extension validates and resolves values locally]
+  F --> A
+  F --> G[Review + one-use submit confirmation]
+  P[(Session-only profile)] --> F
 ```
 
-The backend and optional remote model are outside the private-value trust boundary. See
-[ARCHITECTURE.md](./ARCHITECTURE.md) for the component, message and contract details and
-[THREAT_MODEL.md](./THREAT_MODEL.md) for the security assumptions and residual risks.
+The planner backend is **outside** the private-value boundary. The selected webpage will, by necessity, see values once the user allows the extension to fill them. This design protects what is sent for planning; it does not make a form's recipient private.
 
-## Requirements
-
-- Node.js 20 or newer
-- npm
-- A current Chromium-based browser (Chrome recommended)
-
-## Current development commands
+## Run and verify
 
 ```bash
 npm ci
-npm test
-npm run test:privacy
-npm run test:acceptance
-npm run verify:static
-npm run verify:secrets
-npm run verify:docs
-npm run verify
+npm run server             # demo pages + planner API on localhost:8787
+npm run build:extension    # generates dist/extension
+npm run verify             # tests, privacy/static/secret/documentation checks
 ```
 
-Run the controlled demonstration forms at `http://localhost:8787/demo/`:
-
-```bash
-npm run server
-```
-
-The same process serves the demo forms and the planner API:
-
-- `GET /api/health` reports the effective planner mode;
-- `POST /api/plan` accepts only the sanitized planning-request contract;
-- `GET /demo/*` serves the two controlled forms.
-
-Fallback planning is the default and requires no API key. It deterministically returns typed
-`fill_private` references for compatible fields and never receives or returns real profile values.
+Other focused commands: `npm run test:acceptance`, `npm run test:privacy`, `npm run verify:static`, and `npm run verify:secrets`. The server exposes `GET /api/health`, `POST /api/plan`, and `GET /demo/*`.
 
 ## Optional remote planning
 
-Fallback planning is recommended for the hackathon demonstration because it is deterministic and needs
-no key or network access. To test optional remote planning, create a local `.env` from `.env.example`:
+The local fallback is the easiest and most predictable demo mode. For the optional remote planner, copy `.env.example` to `.env`, set `PLANNER_MODE=remote`, `OPENAI_API_KEY`, and `OPENAI_MODEL`, then restart the server. The key belongs only on the Node.js side; never put it in extension code or a commit. Remote responses are validated and fall back on timeout, malformed output, or unsafe actions. `.env` is ignored by Git.
 
-```powershell
-Copy-Item .env.example .env
-```
+## Project map
 
-Set `PLANNER_MODE=remote`, `OPENAI_API_KEY`, and `OPENAI_MODEL` inside `.env`, then restart
-`npm run server`. Confirm the effective mode at `http://localhost:8787/api/health`. The key is read only
-by the Node.js backend; never paste it into Chrome DevTools, profile fields, extension code, screenshots,
-commits, or presentation slides.
+| Path | Purpose |
+| --- | --- |
+| [`extension/`](./extension/) | Manifest, popup, profile page, content scripts, privacy checks, local fill and visual inspector. |
+| [`server/`](./server/) | Planner API, deterministic fallback and optional remote-model adapter. |
+| [`shared/`](./shared/) | Contracts and types shared across the trust boundary. |
+| [`demo/`](./demo/) | Controlled scholarship, citizen-service and distorted-form pages. |
+| [`tests/`](./tests/) | Unit, integration, privacy and manual acceptance coverage. |
+| [`scripts/`](./scripts/) | Build and security-verification tasks. |
 
-The remote adapter requests structured JSON, revalidates the response, and automatically falls back on
-timeout, network failure, malformed output, unsafe actions, or stale request identifiers.
-
-## Build the Chrome extension
-
-```bash
-npm run build:extension
-```
-
-The loadable unpacked extension is generated at `dist/extension`. In Chrome, open
-`chrome://extensions`, enable Developer mode, choose **Load unpacked**, and select that folder.
-
-The current extension chunk provides:
-
-- a session-only seven-field local profile;
-- strict profile validation and normalization;
-- a popup showing profile readiness and selected-tab access without displaying values;
-- user-triggered, top-frame scanner injection on eligible HTTP/HTTPS pages via temporary `activeTab` access;
-- anonymous field IDs, bounded accessible-name discovery and external-page label minimization;
-- generic native-form support plus an explicitly experimental Google Forms adapter;
-- deterministic PII classification and blocked OTP/password detection;
-- value-independent form snapshot identifiers;
-- an allowlist-only sanitized planning-request builder;
-- exact and normalized profile-value leakage blocking;
-- compatibility counts and an exact checked-JSON payload viewer required before planning;
-- validated calls to the local fallback or remote planner;
-- a second local policy check against a fresh form snapshot;
-- native field filling with `input` and `change` event dispatch;
-- explicit approval before critical Aadhaar or PAN disclosure;
-- session-only, metadata-only per-field audit records;
-- a popup audit viewer with safe local clear controls;
-- an extension-owned review dialog that intercepts submission;
-- a one-use submission bypass that immediately rearms afterward;
-- no persistent all-sites host access; only the localhost planner/demo host is persistent;
-- no API credential or provider code in the browser bundle.
-
-The popup can be invoked on a user-selected eligible HTTP/HTTPS form and display the exact leak-checked
-JSON eligible to leave the extension. Planning remains disabled until that minimized JSON and its zero-match
-privacy result have been displayed. **Plan and fill locally** sends the checked object to the planner, validates
-the returned action plan, asks before resolving critical identifiers, rescans for DOM changes, and fills
-approved values inside the page's isolated extension context. OTP, password-like, unknown, stale, missing,
-disabled, readonly and incompatible targets are rejected before execution. A filled form's next submit
-attempt is intercepted by the extension and shows only the form name, filled-field count, and critical
-category names. Cancel keeps the form editable; **Submit once** permits exactly one submission attempt.
-
-For a local demonstration:
-
-1. Run `npm run server` and `npm run build:extension`.
-2. Load `dist/extension` as an unpacked Chrome extension.
-3. Open the extension profile page, select **Use fictional demo profile**, and then select
-   **Save to this session**. Do not use a team member's real data.
-4. Open either controlled page:
-   - Scholarship: `http://localhost:8787/demo/scholarship.html`
-   - Citizen service: `http://localhost:8787/demo/service-registration.html`
-5. Use **Scan**, inspect the required exact payload and zero-match result, then choose **Plan and fill locally**.
-6. Approve the critical-identifier prompt and review the highlighted fields.
-7. Choose **View privacy audit** to inspect value-free events.
-8. Submit the form, review the extension confirmation dialog, then Cancel or **Submit once**.
-
-Before presenting, complete both the controlled-flow
-[`acceptance-checklist.md`](./tests/manual/acceptance-checklist.md) and the 13-case
-[`external-page-checklist.md`](./tests/manual/external-page-checklist.md). Record the operator, Chrome
-version and result for every row. The external checklist includes three team-created Google Forms run twice;
-automated fixtures do not prove compatibility with Google's current live markup.
-
-The complete five-minute narration, role split, reset sequence and failure recovery are in
-[DEMO_SCRIPT.md](./DEMO_SCRIPT.md). Use [TEST_MATRIX.md](./TEST_MATRIX.md) to connect each claim to
-automated or manual evidence. Store screenshots and the backup recording according to
-[demo-evidence/README.md](./demo-evidence/README.md); that folder intentionally contains no real PII.
-
-## Secret handling
-
-Copy `.env.example` to `.env` only when remote backend configuration is required. Never commit `.env`,
-place an API key in extension code, or use real personal information in tests. Server logs are restricted
-to request ID, field count, planner type, duration, outcome, and a safe error code.
+For deeper detail, see [architecture](./ARCHITECTURE.md), [threat model](./THREAT_MODEL.md), [demo script](./DEMO_SCRIPT.md), [test matrix](./TEST_MATRIX.md), and the [visual browser-agent plan](./VISUAL_BROWSER_AGENT_IMPLEMENTATION_PLAN.md). The [manual acceptance checklist](./tests/manual/acceptance-checklist.md) and [external-page checklist](./tests/manual/external-page-checklist.md) are important before a live presentation.
 
 ## Known MVP limitations
 
-- It supports user-selected standard native HTML forms whose accessible metadata and framework behavior
-  are compatible; it does not promise to fill every form or website.
-- Google Forms support is experimental and limited to tested native short-answer, paragraph and compatible
-  date controls. Custom dropdowns, grids, file uploads and section navigation require manual completion.
-- Cross-origin iframe contents, browser/internal pages, extension stores and local `file://` pages are excluded.
-- Classification is deterministic and label-driven; ambiguous or unfamiliar fields can be left unfilled.
-- The seven-value profile uses temporary `chrome.storage.session`, not a production encrypted vault.
-- Exact and normalized leak checks reduce accidental disclosure but are not a formal DLP guarantee.
-- CAPTCHA, OTP, passwords, file uploads, screenshots, OCR and automatic final submission are excluded.
-- A hostile page can observe values after they are inserted into its DOM; the MVP protects the planning
-  boundary, not a page to which the user has intentionally chosen to disclose information.
-- Remote-model behavior is probabilistic before validation; unapproved or malformed actions fail closed.
+- This is a prototype, not a production identity vault. The seven-field profile lives in temporary `chrome.storage.session` storage.
+- Classification is label-driven, so unfamiliar or ambiguous fields may be left unfilled. Google Forms support is experimental; custom dropdowns, grids, uploads, and multi-section flows require manual work.
+- Cross-origin iframe content, browser-internal pages, `file://` pages, passwords, OTPs, CAPTCHA, and automatic final submission are out of scope.
+- Leak checks and local redaction lower accidental disclosure risk but are not a formal data-loss-prevention guarantee. Do not test with real personal data.
+- Live-site compatibility needs manual verification; automated fixtures alone do not prove that a third-party page still works.
 
 ## Research acknowledgement and novelty boundary
 
-The architecture is informed by Zhao, Li, Zou, Liu et al., *Anonymization-Enhanced Privacy Protection for
-Mobile GUI Agents: Available but Invisible*, particularly its separation between anonymized agent
-reasoning and trusted local resolution. The authors' accompanying research implementation is available at
-[one-step-beh1nd/gui_privacy_protection](https://github.com/one-step-beh1nd/gui_privacy_protection).
-
-PrivacyFill AI is not presented as inventing anonymization or the “available but invisible” principle. Its
-defensible hackathon contribution is a constrained, inspectable Chrome form-filling realization: the user
-can view the exact leak-checked request; the planner emits only schema-validated typed references; real
-values are resolved after a fresh local policy check; offline fallback, metadata-only audit, and one-use
-submission confirmation make the complete trust boundary demonstrable on ordinary web forms.
-
-## Team handoff
-
-Start with this README, then read these documents in order:
-
-1. [ARCHITECTURE.md](./ARCHITECTURE.md) — what runs where and what data crosses each boundary.
-2. [THREAT_MODEL.md](./THREAT_MODEL.md) — what is protected, assumed and still risky.
-3. [DEMO_SCRIPT.md](./DEMO_SCRIPT.md) — the exact five-minute presentation and recovery path.
-4. [TEST_MATRIX.md](./TEST_MATRIX.md) — claim-to-test traceability and evidence locations.
-5. [Controlled acceptance checklist](./tests/manual/acceptance-checklist.md) — localhost Chrome gate.
-6. [External-page checklist](./tests/manual/external-page-checklist.md) — selected-tab and Google Forms gate.
-7. [Visual browser-agent plan](./VISUAL_BROWSER_AGENT_IMPLEMENTATION_PLAN.md) — screenshot, redaction,
-   local vision and bounded-agent implementation sequence.
+The privacy boundary is informed by Zhao, Li, Zou, Liu et al., *Anonymization-Enhanced Privacy Protection for Mobile GUI Agents: Available but Invisible* ([research implementation](https://github.com/one-step-beh1nd/gui_privacy_protection)). Our contribution is an inspectable browser-form MVP: exact checked payload preview, typed references, fresh local validation, offline fallback, value-free audit, and explicit submission control. We do not claim to have invented anonymized agent reasoning.
